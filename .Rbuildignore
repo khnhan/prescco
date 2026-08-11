@@ -1,0 +1,9 @@
+^sim$
+^sim/
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.github$
+^\.gitignore$
+^cran-comments\.md$
+^CRAN-SUBMISSION$
+^LICENSE\.md$

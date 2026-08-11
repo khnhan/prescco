@@ -1,0 +1,20 @@
+# R
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rcheck/
+*.tar.gz
+*.Rout
+
+# roxygen output is generated; some prefer to commit it — see README
+# man/
+
+# simulation outputs (created by sim/run.R)
+beta/
+zeta/
+results/
+
+# OS
+.DS_Store
+Thumbs.db

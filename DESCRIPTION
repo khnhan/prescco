@@ -1,0 +1,32 @@
+Package: censcovpred
+Type: Package
+Title: Semiparametric Prediction Intervals Under a Censored Covariate
+Version: 0.1.0
+Authors@R:
+    person("Kihyun", "Han", email = "kqh5716@psu.edu", role = c("aut", "cre"))
+Description: Constructs prediction intervals for an outcome when a
+    time-to-event covariate is subject to right-censoring. The package provides
+    a general, data-in toolkit that operates on supplied data with optional
+    fully-observed covariates (continuous and discrete): maximum-likelihood
+    estimation of the working X | Z and C | Z models, two coefficient
+    estimators (complete-case least squares and the semiparametric-efficient
+    SPARCC estimator), and two families of prediction intervals
+    (semiparametric and conformal: split, full, and jackknife+). A separate,
+    self-contained, no-covariate simulation study ships alongside the package
+    under 'sim/' and is run by sourcing 'sim/run.R' (it is not part of the
+    installed package namespace).
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends: R (>= 4.0.0)
+Imports:
+    MASS,
+    truncnorm,
+    nleqslv,
+    stats,
+    utils
+Suggests:
+    ggplot2,
+    patchwork,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Config/roxygen2/version: 8.1.0
