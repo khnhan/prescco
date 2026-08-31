@@ -119,7 +119,7 @@ splits into the two cases:
 $$
 m_1 =
 \begin{cases}
-m_0(W, Z, \beta), & \Delta = 1 \\[2.5ex]
+m_0(W, Z, \beta), & \Delta = 1 \\
 \dfrac{E\left[\, I(X > W)\, m_0(X, Z, \beta) \mid W, Z, f_{X \mid Z} \,\right]}
       {E\left[\, I(X > W) \mid W, Z, f_{X \mid Z} \,\right]}, & \Delta = 0
 \end{cases}
@@ -135,7 +135,7 @@ Replacing it with a possibly misspecified working model $f^{*}_{X \mid Z}$
 gives
 
 $$
-m_1^{*} = E\left( Y \mid W, \Delta, Z, \beta, f^{*}_{X \mid Z} \right)
+m_1^* = E\left( Y \mid W, \Delta, Z, \beta, f^*_{X \mid Z} \right)
 $$
 
 This is the center you can actually compute in practice, and it is why the
