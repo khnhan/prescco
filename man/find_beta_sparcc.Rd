@@ -2,7 +2,7 @@
 % Please edit documentation in R/beta_fit.R
 \name{find_beta_sparcc}
 \alias{find_beta_sparcc}
-\title{SPARCC semiparametric-efficient fit of the outcome model}
+\title{SPARCC fit of the outcome model}
 \usage{
 find_beta_sparcc(
   y_data,

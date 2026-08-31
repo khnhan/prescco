@@ -3,10 +3,10 @@
 #  ---------------------------------------------------------------------------
 #  Two estimators of the outcome coefficients:
 #
-#    * SPARCC  -- the semiparametrically efficient estimator, one file per
+#    * SPARCC  -- SPARCC estimator, one file per
 #                 (censoring level, nuisance specification). Prerequisite for
 #                 the PRESCCO prediction.
-#    * CC      -- complete-case least squares, one file per censoring level.
+#    * CC      -- complete-case estimator, one file per censoring level.
 #                 A comparison estimator; nothing downstream consumes it.
 #
 #  ---------------------------------------------------------------------------
@@ -127,7 +127,7 @@ run_all_beta_scenarios <- function(out_dir = ".", which = NULL, alpha1 = 0, ...)
 #  independent of loop order and of anything else in the session.
 # =============================================================================
 
-#' Complete-case least-squares beta for one replicate
+#' Complete-case beta for one replicate
 #'
 #' @param k Integer seed / replicate index.
 #' @param n,d Sample size and covariate dimension.

@@ -82,11 +82,11 @@ specification and under two deliberate misspecifications.
 
 Two estimators, deliberately named alike:
 
-* **`find_beta_cc()`** — complete-case least squares. Regresses $Y$ on the
+* **`find_beta_cc()`** — complete-case estimator. Regresses $Y$ on the
   design built from $(W, Z)$ using only the $\Delta = 1$ rows, where $W = X$.
   Simple and consistent under independent censoring, but discards data.
 
-* **`find_beta_sparcc()`** — the semiparametrically efficient estimator. It solves
+* **`find_beta_sparcc()`** — SPARCC estimator. It solves
   an estimating equation built from the model's efficient influence function,
   which uses *every* observation: for a censored subject it integrates the
   score over the conditional distribution of $X$ given $X > W$ and $Z$ implied
@@ -332,12 +332,12 @@ Twelve. Everything else is internal.
 |---|---|
 | `find_alpha1_MLE()` | MLE for the working $X \mid Z$ model |
 | `find_alpha2_MLE()` | MLE for the working $C \mid Z$ model |
-| `find_beta_cc()` | Complete-case least squares |
-| `find_beta_sparcc()` | Semiparametrically efficient estimator |
-| `PRESCCO_prediction_interval()` | Half-length via the efficient influence function |
-| `split_conformal_prediction_interval()` | Split conformal |
-| `full_conformal_prediction_interval()` | Full conformal |
-| `jackknife_plus_prediction_interval()` | Jackknife+ |
+| `find_beta_cc()` | Complete-case beta estimator |
+| `find_beta_sparcc()` | SPARCC beta estimator |
+| `PRESCCO_prediction_interval()` | PRESCCO prediction interval |
+| `split_conformal_prediction_interval()` | Split conformal prediction interval |
+| `full_conformal_prediction_interval()` | Full conformal prediction interval |
+| `jackknife_plus_prediction_interval()` | Jackknife+ prediction interval |
 | `prediction_coverage_rate()` | Coverage of a fitted half-length on a test set |
 | `phi_xz()` | Covariate basis fixing the layout of $\beta$ |
 | `r1()`, `r2()` | Residuals, passed to the two functions that take one |

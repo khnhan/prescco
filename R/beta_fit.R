@@ -4,10 +4,9 @@
 #  Two estimators of the outcome-model coefficient vector beta (and residual
 #  scale sigma) from right-censored-covariate data, both covariate-aware:
 #
-#    * find_beta_cc()               complete-case least squares on the
+#    * find_beta_cc()               complete-case estimtaor on the
 #                                   uncensored (delta == 1) observations.
-#    * find_beta_sparcc()  the semiparametric-efficient SPARCC
-#                                   estimator, solving the efficient estimating
+#    * find_beta_sparcc()           SPARCC estimator, solving the efficient estimating
 #                                   equation under working nuisance models
 #                                   (alpha1_star, alpha2_star, tau1, tau2).
 #
@@ -16,7 +15,7 @@
 #  Package imports are declared centrally in R/prescco-package.R.
 # =============================================================================
 
-#' Complete-case least-squares fit of the outcome model
+#' Complete-case fit of the outcome model
 #'
 #' Fits beta by ordinary least squares on the uncensored observations
 #' (delta == 1), where X = W is observed, using the phi_xz design.
@@ -50,7 +49,7 @@ find_beta_cc <- function(y_data, w_data, delta_data,
   if (length(w_data) != n || length(delta_data) != n) {
     stop("y_data, w_data, and delta_data must have the same length.")
   }
-  
+
   ## Handle z_c_data and z_d_data as matrices (possibly 0 cols)
   if (is.null(z_c_data)) {
     z_c_mat <- matrix(0, nrow = n, ncol = 0)
@@ -64,7 +63,7 @@ find_beta_cc <- function(y_data, w_data, delta_data,
     z_c_mat <- as.matrix(z_c_data)
     p_c     <- ncol(z_c_mat)
   }
-  
+
   if (is.null(z_d_data)) {
     z_d_mat <- matrix(0, nrow = n, ncol = 0)
     p_d     <- 0
@@ -77,19 +76,19 @@ find_beta_cc <- function(y_data, w_data, delta_data,
     z_d_mat <- as.matrix(z_d_data)
     p_d     <- ncol(z_d_mat)
   }
-  
+
   ## Complete cases: X = W when delta = 1
   idx_cc <- which(delta_data == 1)
   if (length(idx_cc) == 0) {
     stop("No complete cases (delta_data == 1); cannot compute CC estimator.")
   }
-  
+
   y_cc <- y_data[idx_cc]
   x_cc <- w_data[idx_cc]
-  
+
   z_c_cc <- z_c_mat[idx_cc, , drop = FALSE]
   z_d_cc <- z_d_mat[idx_cc, , drop = FALSE]
-  
+
   ## Design matrix for:
   ## Y ~ 1 + X + Z_c + Z_d + X:Z_c + X:Z_d
   design_cc <- cbind(
@@ -100,19 +99,19 @@ find_beta_cc <- function(y_data, w_data, delta_data,
     if (p_c > 0) sweep(z_c_cc, 1, x_cc, `*`) else NULL,
     if (p_d > 0) sweep(z_d_cc, 1, x_cc, `*`) else NULL
   )
-  
+
   d_beta <- ncol(design_cc)
-  
+
   ## OLS on complete cases
   fit_cc   <- stats::lm.fit(design_cc, y_cc)
   beta_cc  <- as.numeric(fit_cc$coefficients)
-  
+
   ## Replace NA coefficients (if any dropped) with 0 and ensure length d_beta
   if (length(beta_cc) < d_beta) {
     beta_cc <- c(beta_cc, rep(NA_real_, d_beta - length(beta_cc)))
   }
   beta_cc[is.na(beta_cc)] <- 0
-  
+
   ## Residual-based sigma
   resid_cc  <- y_cc - as.vector(design_cc %*% beta_cc)
   sigma_cc  <- sd(resid_cc)
@@ -120,7 +119,7 @@ find_beta_cc <- function(y_data, w_data, delta_data,
     warning("CC residual sd is not positive/finite; using IQR/1.349 as fallback.")
     sigma_cc <- IQR(resid_cc) / 1.349
   }
-  
+
   list(
     beta_cc    = beta_cc,
     sigma_cc   = sigma_cc,
@@ -131,7 +130,7 @@ find_beta_cc <- function(y_data, w_data, delta_data,
   )
 }
 
-#' SPARCC semiparametric-efficient fit of the outcome model
+#' SPARCC fit of the outcome model
 #'
 #' Solves the efficient estimating equation for beta under the working nuisance
 #' models for X | Z and C | Z. Covariate-aware via the phi_xz basis.
@@ -175,12 +174,12 @@ find_beta_sparcc = function(y_data, w_data, delta_data,
                                      tt = 20, m = 20,
                                      w_min, w_max,
                                      verbose = FALSE) {
-  
+
   n <- length(y_data)
   if (length(w_data) != n || length(delta_data) != n) {
     stop("y_data, w_data, and delta_data must have the same length.")
   }
-  
+
   ## ---------- Handle z_c_data and z_d_data as matrices ----------
   if (is.null(z_c_data)) {
     z_c_mat <- matrix(0, nrow = n, ncol = 0)
@@ -194,7 +193,7 @@ find_beta_sparcc = function(y_data, w_data, delta_data,
     z_c_mat <- as.matrix(z_c_data)
     p_c     <- ncol(z_c_mat)
   }
-  
+
   if (is.null(z_d_data)) {
     z_d_mat <- matrix(0, nrow = n, ncol = 0)
     p_d     <- 0
@@ -207,14 +206,14 @@ find_beta_sparcc = function(y_data, w_data, delta_data,
     z_d_mat <- as.matrix(z_d_data)
     p_d     <- ncol(z_d_mat)
   }
-  
+
   ## ---------- Beta dimension implied by design ----------
   ## Model: Y ~ 1 + X + Z_c + Z_d + X:Z_c + X:Z_d
   d_beta <- 2 + 2 * p_c + 2 * p_d   # (1, X, Z_c, Z_d, XZ_c, XZ_d)
-  
+
   ## ---------- Complete cases: X = W when delta = 1 ----------
   idx_cc <- which(delta_data == 1)
-  
+
   if (length(idx_cc) == 0) {
     warning("No complete cases (delta = 1); using zeros for beta start.")
     start_beta  <- rep(0, d_beta)
@@ -223,13 +222,13 @@ find_beta_sparcc = function(y_data, w_data, delta_data,
     if (length(idx_cc) < d_beta) {
       warning("Very few complete cases relative to beta dimension; CC start may be unstable.")
     }
-    
+
     y_cc <- y_data[idx_cc]
     x_cc <- w_data[idx_cc]
-    
+
     z_c_cc <- z_c_mat[idx_cc, , drop = FALSE]
     z_d_cc <- z_d_mat[idx_cc, , drop = FALSE]
-    
+
     ## Design for: Y ~ 1 + X + Z_c + Z_d + X:Z_c + X:Z_d
     design_cc <- cbind(
       1,
@@ -239,23 +238,23 @@ find_beta_sparcc = function(y_data, w_data, delta_data,
       if (p_c > 0) sweep(z_c_cc, 1, x_cc, `*`) else NULL,
       if (p_d > 0) sweep(z_d_cc, 1, x_cc, `*`) else NULL
     )
-    
+
     ## OLS on complete cases
     cc_fit     <- stats::lm.fit(design_cc, y_cc)
     start_beta <- as.numeric(cc_fit$coefficients)
-    
+
     ## Ensure correct length and replace NAs with 0
     if (length(start_beta) < ncol(design_cc)) {
       start_beta <- c(start_beta, rep(NA_real_, ncol(design_cc) - length(start_beta)))
     }
     start_beta[is.na(start_beta)] <- 0
-    
+
     if (length(start_beta) < d_beta) {
       start_beta <- c(start_beta, rep(0, d_beta - length(start_beta)))
     } else if (length(start_beta) > d_beta) {
       start_beta <- start_beta[seq_len(d_beta)]
     }
-    
+
     ## Residual-based sigma from CC fit
     resid_cc    <- y_cc - as.vector(design_cc %*% start_beta)
     start_sigma <- sd(resid_cc)
@@ -263,18 +262,18 @@ find_beta_sparcc = function(y_data, w_data, delta_data,
       start_sigma <- (w_max - w_min) / 4
     }
   }
-  
+
   ## ---------- X-grid ----------
   x_a <- seq(w_min, w_max, length.out = m)
-  
+
   ## ---------- Equation solve for (beta, log(sigma)) via pe_gauss_param12 ----------
   if (!requireNamespace("nleqslv", quietly = TRUE)) {
     stop("Package 'nleqslv' is required.")
   }
-  
+
   # Parameter for nleqslv: betasigma = (beta, log_sigma)
   start_betasigma <- c(start_beta, log(start_sigma))
-  
+
   result <- nleqslv::nleqslv(
     start_betasigma,
     pe_gauss_param12,
@@ -292,14 +291,14 @@ find_beta_sparcc = function(y_data, w_data, delta_data,
     w_max       = w_max,
     tt          = tt
   )
-  
+
   if (verbose) message("nleqslv: ", result$message)
-  
+
   ## ---------- Extract estimates ----------
   betasigma_hat <- result$x
   beta_hat      <- betasigma_hat[1:d_beta]
   sigma_hat     <- exp(betasigma_hat[d_beta + 1])
-  
+
   list(
     beta_hat       = beta_hat,
     sigma_hat      = sigma_hat,

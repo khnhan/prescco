@@ -2,7 +2,7 @@
 % Please edit documentation in R/beta_fit.R
 \name{find_beta_cc}
 \alias{find_beta_cc}
-\title{Complete-case least-squares fit of the outcome model}
+\title{Complete-case fit of the outcome model}
 \usage{
 find_beta_cc(y_data, w_data, delta_data, z_c_data = NULL, z_d_data = NULL)
 }
