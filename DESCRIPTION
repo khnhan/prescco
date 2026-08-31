@@ -1,4 +1,4 @@
-Package: censcovpred
+Package: prescco
 Type: Package
 Title: Semiparametric Prediction Intervals Under a Censored Covariate
 Version: 0.1.0
@@ -14,7 +14,8 @@ Description: Constructs prediction intervals for an outcome when a
     (semiparametric and conformal: split, full, and jackknife+). A separate,
     self-contained, no-covariate simulation study ships alongside the package
     under 'sim/' and is run by sourcing 'sim/run.R' (it is not part of the
-    installed package namespace).
+    installed package namespace). The name abbreviates PREdiction with
+    Semiparametric Efficiency under a right-Censored COvariate.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.0.0)

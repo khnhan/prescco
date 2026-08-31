@@ -15,7 +15,7 @@
 #  returns the half-length; full conformal and jackknife+ return the empirical
 #  coverage rate (and half-length) directly.
 #
-#  Package imports are declared centrally in R/censcovpred-package.R.
+#  Package imports are declared centrally in R/prescco-package.R.
 # =============================================================================
 
 # ---- Vectorized centers and residuals ----

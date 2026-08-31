@@ -13,7 +13,7 @@
 #
 #  Both accept optional continuous (z_c) and discrete (z_d) covariates.
 #
-#  Package imports are declared centrally in R/censcovpred-package.R.
+#  Package imports are declared centrally in R/prescco-package.R.
 # =============================================================================
 
 #' Complete-case least-squares fit of the outcome model

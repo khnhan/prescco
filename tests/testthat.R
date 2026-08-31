@@ -1,4 +1,4 @@
 library(testthat)
-library(censcovpred)
+library(prescco)
 
-test_check("censcovpred")
+test_check("prescco")

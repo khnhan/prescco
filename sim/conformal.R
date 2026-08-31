@@ -1,5 +1,5 @@
 # =============================================================================
-#  Conformal-baseline simulation driver for censcovpred
+#  Conformal-baseline simulation driver for prescco
 #  ---------------------------------------------------------------------------
 #  Runs the three conformal comparison methods (split conformal, full conformal,
 #  jackknife+) across censoring levels and writes each method's half-length and

@@ -1,7 +1,7 @@
 # =============================================================================
-#  Visualization / post-processing for censcovpred
+#  Visualization / post-processing for prescco
 #  ---------------------------------------------------------------------------
-#  Aggregates the per-method .Rdata outputs (half-length zeta_sol and empirical
+#  Aggregates the per-method .Rdata outputs (half-length zeta_sol and
 #  coverage rate pred_cvg) into:
 #    1. a summary table (mean / bias / empirical SD of zeta, mean / SD of the
 #       empirical coverage rate), written to CSV, and
@@ -13,7 +13,7 @@
 #  script are omitted, matching the rest of the package.
 #
 #  Requires ggplot2 and patchwork. The six methods are, in
-#  order: semiparametric (eta1,eta2) / (eta1*,eta2) / (eta1,eta2*), split
+#  order: PRESCCO (eta1,eta2) / (eta1*,eta2) / (eta1,eta2*), split
 #  conformal, full conformal, jackknife+.
 # =============================================================================
 
@@ -124,7 +124,7 @@ summarize_sim_level <- function(draws, censor, zeta_true = NULL) {
     "(" * eta[1] * "," * eta[2] * " )",
     "(" * eta[1] * "*" * "," * eta[2] * ")",
     "(" * eta[1] * "," * eta[2]^"\u2605" * ")",
-    "SCP", "FCP", "JK+")
+    "Split CP", "Full CP", "Jackknife+")
 }
 
 #' Build the combined transposed boxplot for one censoring level
@@ -161,7 +161,7 @@ plot_combined_transposed <- function(draws, alpha = 0.1,
   p1 <- half_panel("r1",     fills[["r1"]])
   p2 <- half_panel("r2",     fills[["r2"]])
   p3 <- half_panel("r1star", fills[["r1star"]],
-                   xlab = expression("Half-length " * hat("\u03b6")))
+                   xlab = "estimated half-length")
   left_panel <- patchwork::wrap_plots(p1, p2, p3, ncol = 1)
 
   # --- right: tall coverage rate panel with gaps between residual blocks ---
@@ -185,7 +185,7 @@ plot_combined_transposed <- function(draws, alpha = 0.1,
       breaks = levels_vert,
       labels = c(rev(labels), "", rev(labels), "", rev(labels)),
       drop = FALSE) +
-    ggplot2::labs(x = "Empirical coverage rate", y = NULL) +
+    ggplot2::labs(x = "coverage rate", y = NULL) +
     ggplot2::theme_minimal(base_size = 12) +
     ggplot2::theme(legend.position = "right")
 

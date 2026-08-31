@@ -1,16 +1,16 @@
 # =============================================================================
-#  Semiparametric prediction intervals (covariate-aware, data-in)
+#  PRESCCO prediction intervals (covariate-aware, data-in)
 #  ---------------------------------------------------------------------------
 #  Given fitted coefficients and working nuisance models, these routines build
 #  the SPARCC influence-function arrays, solve for the efficient half-length
 #  zeta on the observed data, and evaluate coverage on a test set. All are
 #  covariate-aware (optional z_c, z_d). The user-facing entry point is
-#  semiparametric_prediction_interval(); the c*/M*/b* helpers are internal.
+#  PRESCCO_prediction_interval(); the c*/M*/b* helpers are internal.
 #
-#  Package imports are declared centrally in R/censcovpred-package.R.
+#  Package imports are declared centrally in R/prescco-package.R.
 # =============================================================================
 
-#' Internal semiparametric-interval helper (covariate-aware).
+#' Internal PRESCCO-interval helper (covariate-aware).
 #' @noRd
 c1_xz_gauss_param12 = function(zeta, alpha, r,
                                beta, x_a,
@@ -19,9 +19,9 @@ c1_xz_gauss_param12 = function(zeta, alpha, r,
                                sigma, tau1, tau2, tau1_r,
                                w_min, w_max,
                                tt = 20, tt2 = 100) {
-  
+
   cc <- gauss(tt2)  # Gaussian quadrature in Y
-  
+
   ## Local basis for mu_Y(X,Z): 1, X, Z_c, Z_d, X Z_c, X Z_d
   phi_xz_local <- function(x, z_c = NULL, z_d = NULL) {
     z_c_vec <- if (is.null(z_c)) numeric(0) else as.numeric(z_c)
@@ -35,13 +35,13 @@ c1_xz_gauss_param12 = function(zeta, alpha, r,
       x * z_d_vec
     )
   }
-  
+
   ## temp2: E_C[ I(X < C) I{ r(Y, X, 1) <= zeta } + I(X >= C) I{ r(Y, C, 0) <= zeta } | Y, X, Z ]
   ## where C | Z ~ TN( (1,Z)^T alpha2_star, tau2^2; [w_min, w_max] )
   temp2 <- function(x, y) {
     z_c_vec <- if (is.null(z_c)) numeric(0) else as.numeric(z_c)
     z_d_vec <- if (is.null(z_d)) numeric(0) else as.numeric(z_d)
-    
+
     if (x < w_min) {
       ## Below support; treat as uncensored at X = x
       return(
@@ -56,22 +56,22 @@ c1_xz_gauss_param12 = function(zeta, alpha, r,
     } else {
       ## Integrate over censoring time C in [w_min, w_max]
       c_grid <- seq(w_min, w_max, length.out = tt)
-      
+
       mean_C <- sum(c(1, z_c_vec, z_d_vec) * alpha2_star)
-      
+
       dens_c <- truncnorm::dtruncnorm(c_grid,
                            a    = w_min,
                            b    = w_max,
                            mean = mean_C,
                            sd   = tau2)
-      
+
       ## Normalize in case of numerical drift
       dens_c <- dens_c / sum(dens_c)
-      
+
       ## For each C, define observed (W, delta)
       w_grid     <- pmin(x, c_grid)
       delta_grid <- as.numeric(x <= c_grid)
-      
+
       RHS <- sapply(1:tt, function(i) {
         as.numeric(
           r(y,
@@ -83,33 +83,33 @@ c1_xz_gauss_param12 = function(zeta, alpha, r,
             w_min, w_max) <= zeta
         )
       })
-      
+
       return(as.numeric(RHS %*% dens_c))
     }
   }
-  
+
   ## temp3: E[ temp2(Y, X, Z) | X, Z ]
   temp3 <- function(x) {
     z_c_vec <- if (is.null(z_c)) numeric(0) else as.numeric(z_c)
     z_d_vec <- if (is.null(z_d)) numeric(0) else as.numeric(z_d)
-    
+
     ## Mean of Y | X = x, Z = (z_c, z_d)
     mu_xz <- sum(phi_xz_local(x, z_c_vec, z_d_vec) * beta)
-    
+
     ## Quadrature over Y = mu_xz + sigma * Z, Z ~ N(0,1)
     y_grid <- mu_xz + sigma * cc$x
-    
+
     vals <- sapply(y_grid, function(y_norm) temp2(x, y_norm))
-    
+
     as.numeric(vals %*% cc$w)
   }
-  
+
   temp3 <- Vectorize(temp3, vectorize.args = "x")
-  
+
   ## Return equation evaluated on x_a minus (1 - alpha)
   temp3(x_a) - (1 - alpha)
 }
-#' Internal semiparametric-interval helper (covariate-aware).
+#' Internal PRESCCO-interval helper (covariate-aware).
 #' @noRd
 M1_xz_gauss_param12 = function(beta, x_a,
                                z_c, z_d,
@@ -117,16 +117,16 @@ M1_xz_gauss_param12 = function(beta, x_a,
                                sigma, tau1, tau2,
                                w_min, w_max,
                                tt = 20, tt2 = 20) {
-  
+
   cc <- gauss(tt2)  # Gaussian quadrature for Y
-  
+
   ## Ensure z_c, z_d are numeric vectors
   z_c_vec <- if (is.null(z_c)) numeric(0) else as.numeric(z_c)
   z_d_vec <- if (is.null(z_d)) numeric(0) else as.numeric(z_d)
-  
+
   p_c <- length(z_c_vec)
   p_d <- length(z_d_vec)
-  
+
   ## Indexing for beta under basis:
   ## (1, X, Z_c, Z_d, X Z_c, X Z_d)
   idx_x   <- 2L
@@ -134,99 +134,99 @@ M1_xz_gauss_param12 = function(beta, x_a,
   idx_zd  <- if (p_d > 0) 2L + p_c + seq_len(p_d) else integer(0)
   idx_xzc <- if (p_c > 0) 2L + p_c + p_d + seq_len(p_c) else integer(0)
   idx_xzd <- if (p_d > 0) 2L + p_c + p_d + p_c + seq_len(p_d) else integer(0)
-  
+
   ## Outcome mean Y|X,Z: intercept + slope * X
   intercept_x <- beta[1] +
     (if (p_c > 0) sum(beta[idx_zc]  * z_c_vec) else 0) +
     (if (p_d > 0) sum(beta[idx_zd]  * z_d_vec) else 0)
-  
+
   slope_x <- beta[idx_x] +
     (if (p_c > 0) sum(beta[idx_xzc] * z_c_vec) else 0) +
     (if (p_d > 0) sum(beta[idx_xzd] * z_d_vec) else 0)
-  
+
   ## Prior mean of X|Z
   mu_x_prior <- sum(c(1, z_c_vec, z_d_vec) * alpha1_star)
-  
+
   ## Mean of C|Z
   mu_c <- sum(c(1, z_c_vec, z_d_vec) * alpha2_star)
-  
+
   ## temp[a(X,Z)] = E[ I(X > C) a(X,Z) | C, Y, Z ] / E[ I(X > C) | C, Y, Z ]
   temp <- function(x_grid, c, y) {
     ## Posterior X|Y,Z: N(eta_x, v_x), then truncated to [w_min, w_max]
     v_x  <- 1 / (slope_x^2 / sigma^2 + 1 / tau1^2)
     eta_x <- v_x * (slope_x * (y - intercept_x) / sigma^2 +
                       mu_x_prior / tau1^2)
-    
+
     p <- truncnorm::dtruncnorm(x_grid,
                     a    = w_min,
                     b    = w_max,
                     mean = eta_x,
                     sd   = sqrt(v_x))
-    
+
     num   <- (x_grid > c) * p
     denom <- sum(num)
-    
+
     ifelse(is.nan(num / denom), 0, num / denom)
   }
-  
+
   ## temp2[a(X,Z)] = E[ I(X > C) temp(x_a, C, Y, Z) | X, Y, Z ]
   temp2 <- function(x_grid, x, y) {
     c_grid <- seq(w_min, w_max, length.out = tt)
-    
+
     dens <- truncnorm::dtruncnorm(c_grid,
                        a    = w_min,
                        b    = w_max,
                        mean = mu_c,
                        sd   = tau2)
     dens <- dens / sum(dens)
-    
+
     sapply(c_grid, function(c_norm) {
       (x > c_norm) * temp(x_grid, c_norm, y)
     }) %*% dens
   }
-  
+
   ## temp3[a(X,Z)] = E[ temp2(X, Y, Z) | X, Z ]
   temp3 <- function(x_grid, x) {
     ## Mean of Y | X = x, Z = (z_c, z_d)
     mu_xz <- intercept_x + slope_x * x
-    
+
     y_grid <- mu_xz + sigma * cc$x
-    
+
     sapply(y_grid, function(y_norm) {
       temp2(x_grid, x, y_norm)
     }) %*% cc$w
   }
   temp3 <- Vectorize(temp3, vectorize.args = "x")
-  
+
   ## temp4[a(X,Z)] = E[ I(X < C) | Y, X, Z ] a(X,Z)  (here I(X < C) only depends on C|Z)
   temp4 <- function(x, y) {
     c_grid <- seq(w_min, w_max, length.out = tt)
-    
+
     dens <- truncnorm::dtruncnorm(c_grid,
                        a    = w_min,
                        b    = w_max,
                        mean = mu_c,
                        sd   = tau2)
     dens <- dens / sum(dens)
-    
+
     sum((x <= c_grid) * dens)
   }
   temp4 <- Vectorize(temp4, vectorize.args = "y")
-  
+
   ## temp5[a(X,Z)] = E[ temp4(X, Y, Z) | X, Z ] a(X,Z)
   temp5 <- function(x) {
     mu_xz  <- intercept_x + slope_x * x
     y_grid <- mu_xz + sigma * cc$x
-    
+
     sum(temp4(x, y_grid) * cc$w)
   }
   temp5 <- Vectorize(temp5, vectorize.args = "x")
-  
+
   ## Final matrix: diag(temp5(x_a)) + t(temp3(x_a, x_a))
   res <- diag(temp5(x_a)) + t(temp3(x_a, x_a))
   res
 }
-#' Internal semiparametric-interval helper (covariate-aware).
+#' Internal PRESCCO-interval helper (covariate-aware).
 #' @noRd
 b1_gauss_param12 = function(zeta, alpha, r,
                             beta, x_a,
@@ -235,7 +235,7 @@ b1_gauss_param12 = function(zeta, alpha, r,
                             sigma, tau1, tau2,
                             w_min, w_max,
                             tt = 20, tt2 = 100) {
-  
+
   M1_mat <- M1_xz_gauss_param12(
     beta        = beta,
     x_a         = x_a,
@@ -251,7 +251,7 @@ b1_gauss_param12 = function(zeta, alpha, r,
     tt          = tt,
     tt2         = tt2
   )
-  
+
   c1_vec <- c1_xz_gauss_param12(
     zeta        = zeta,
     alpha       = alpha,
@@ -271,10 +271,10 @@ b1_gauss_param12 = function(zeta, alpha, r,
     tt          = tt,
     tt2         = tt2
   )
-  
+
   MASS::ginv(M1_mat) %*% c1_vec
 }
-#' Internal semiparametric-interval helper (covariate-aware).
+#' Internal PRESCCO-interval helper (covariate-aware).
 #' @noRd
 c2_xz_gauss_param12 = function(zeta, alpha, r,
                                beta, x_a,
@@ -283,16 +283,16 @@ c2_xz_gauss_param12 = function(zeta, alpha, r,
                                sigma, tau1, tau2,
                                w_min, w_max,
                                tt = 20, tt2 = 100) {
-  
+
   cc <- gauss(tt2)
-  
+
   ## Ensure z_c, z_d are numeric vectors
   z_c_vec <- if (is.null(z_c)) numeric(0) else as.numeric(z_c)
   z_d_vec <- if (is.null(z_d)) numeric(0) else as.numeric(z_d)
-  
+
   p_c <- length(z_c_vec)
   p_d <- length(z_d_vec)
-  
+
   ## Basis indexing for beta under:
   ## (1, X, Z_c, Z_d, X Z_c, X Z_d)
   idx_x   <- 2L
@@ -300,29 +300,29 @@ c2_xz_gauss_param12 = function(zeta, alpha, r,
   idx_zd  <- if (p_d > 0) 2L + p_c + seq_len(p_d) else integer(0)
   idx_xzc <- if (p_c > 0) 2L + p_c + p_d + seq_len(p_c) else integer(0)
   idx_xzd <- if (p_d > 0) 2L + p_c + p_d + p_c + seq_len(p_d) else integer(0)
-  
+
   ## Y | X,Z has mean: intercept_x + slope_x * X
   intercept_x <- beta[1] +
     (if (p_c > 0) sum(beta[idx_zc]  * z_c_vec) else 0) +
     (if (p_d > 0) sum(beta[idx_zd]  * z_d_vec) else 0)
-  
+
   slope_x <- beta[idx_x] +
     (if (p_c > 0) sum(beta[idx_xzc] * z_c_vec) else 0) +
     (if (p_d > 0) sum(beta[idx_xzd] * z_d_vec) else 0)
-  
+
   ## X | Z ~ N(mu_x_prior, tau1^2), truncated to [w_min, w_max]
   mu_x_prior <- sum(c(1, z_c_vec, z_d_vec) * alpha1_star)
-  
+
   ## temp2(c, x) = E_Y[ I{ r(Y, W, delta) <= zeta } | C = c, X = x, Z ]
   ## where W = min(X, C), delta = 1{ X <= C }
   temp2 <- function(c, x) {
     # mean of Y | X = x, Z
     mu_xz  <- intercept_x + slope_x * x
     y_grid <- mu_xz + sigma * cc$x
-    
+
     w_obs    <- min(x, c)
     delta_obs <- as.numeric(x <= c)
-    
+
     vals <- sapply(y_grid, function(y_norm) {
       as.numeric(
         r(y_norm,
@@ -334,34 +334,34 @@ c2_xz_gauss_param12 = function(zeta, alpha, r,
           w_min, w_max) <= zeta
       )
     })
-    
+
     as.numeric(vals %*% cc$w)
   }
-  
+
   ## temp3(c) = E_X[ temp2(c, X) | Z ] over X|Z
   temp3 <- function(c) {
     x_grid <- seq(w_min, w_max, length.out = tt)
-    
+
     dens_x <- truncnorm::dtruncnorm(x_grid,
                          a    = w_min,
                          b    = w_max,
                          mean = mu_x_prior,
                          sd   = tau1)
     dens_x <- dens_x / sum(dens_x)
-    
+
     RHS <- vapply(seq_len(tt), function(i) {
       temp2(c, x_grid[i])
     }, numeric(1))
-    
+
     as.numeric(RHS %*% dens_x)
   }
-  
+
   temp3 <- Vectorize(temp3, vectorize.args = "c")
-  
+
   ## Equation evaluated on c-grid x_a
   temp3(x_a) - (1 - alpha)
 }
-#' Internal semiparametric-interval helper (covariate-aware).
+#' Internal PRESCCO-interval helper (covariate-aware).
 #' @noRd
 M2_xz_gauss_param12 = function(beta, x_a,
                                z_c, z_d,
@@ -369,15 +369,15 @@ M2_xz_gauss_param12 = function(beta, x_a,
                                sigma, tau1, tau2,
                                w_min, w_max,
                                tt = 50, tt2 = 50) {
-  
+
   ## z_c, z_d are one covariate point (can be vectors)
   z_c_vec <- if (is.null(z_c)) numeric(0) else as.numeric(z_c)
   z_d_vec <- if (is.null(z_d)) numeric(0) else as.numeric(z_d)
-  
+
   ## Means for X|Z and C|Z
   mu_x <- sum(c(1, z_c_vec, z_d_vec) * alpha1_star)
   mu_c <- sum(c(1, z_c_vec, z_d_vec) * alpha2_star)
-  
+
   ## temp[a(X,Z)] = E[ I(C >= x) a(C,Z) | "C on grid x_a", Z ] /
   ##                E[ I(C >= x) | Z ]  (implemented via discretization on x_a)
   temp <- function(x_grid, x) {
@@ -386,51 +386,51 @@ M2_xz_gauss_param12 = function(beta, x_a,
                     b    = w_max,
                     mean = mu_c,
                     sd   = tau2)
-    
+
     num   <- (x_grid >= x) * p
     denom <- sum(num)
-    
+
     ifelse(is.nan(num / denom), 0, num / denom)
   }
-  
+
   ## temp2[a(X,Z)] = E[ I(X <= C) temp(x_a, X) | C, Z ]
   ## integrate over X|Z
   temp2 <- function(x_grid, c) {
     x_grid_int <- seq(w_min, w_max, length.out = tt)
-    
+
     dens_x <- truncnorm::dtruncnorm(x_grid_int,
                          a    = w_min,
                          b    = w_max,
                          mean = mu_x,
                          sd   = tau1)
     dens_x <- dens_x / sum(dens_x)
-    
+
     sapply(x_grid_int, function(x_norm) {
       (x_norm <= c) * temp(x_grid, x_norm)
     }) %*% dens_x
   }
   temp2 <- Vectorize(temp2, vectorize.args = "c")
-  
+
   ## temp3(c) = E[ I(X > C) | C, Z ]
   temp3 <- function(c) {
     x_grid_int <- seq(w_min, w_max, length.out = tt)
-    
+
     dens_x <- truncnorm::dtruncnorm(x_grid_int,
                          a    = w_min,
                          b    = w_max,
                          mean = mu_x,
                          sd   = tau1)
     dens_x <- dens_x / sum(dens_x)
-    
+
     sum((x_grid_int > c) * dens_x)
   }
   temp3 <- Vectorize(temp3, vectorize.args = "c")
-  
+
   ## Final operator: diag(temp3(x_a)) + t(temp2(x_a, x_a))
   res <- diag(temp3(x_a)) + t(temp2(x_a, x_a))
   res
 }
-#' Internal semiparametric-interval helper (covariate-aware).
+#' Internal PRESCCO-interval helper (covariate-aware).
 #' @noRd
 b2_gauss_param12 = function(zeta, alpha, r,
                             beta, x_a,
@@ -439,7 +439,7 @@ b2_gauss_param12 = function(zeta, alpha, r,
                             sigma, tau1, tau2,
                             w_min, w_max,
                             tt = 50, tt2 = 50) {
-  
+
   M2_mat <- M2_xz_gauss_param12(
     beta        = beta,
     x_a         = x_a,
@@ -455,7 +455,7 @@ b2_gauss_param12 = function(zeta, alpha, r,
     tt          = tt,
     tt2         = tt2
   )
-  
+
   c2_vec <- c2_xz_gauss_param12(
     zeta        = zeta,
     alpha       = alpha,
@@ -475,10 +475,10 @@ b2_gauss_param12 = function(zeta, alpha, r,
     tt          = tt,
     tt2         = tt2
   )
-  
+
   MASS::ginv(M2_mat) %*% c2_vec
 }
-#' Internal semiparametric-interval helper (covariate-aware).
+#' Internal PRESCCO-interval helper (covariate-aware).
 #' @noRd
 b3_gauss_param12 = function(zeta, alpha, r,
                             beta, x_a,
@@ -487,16 +487,16 @@ b3_gauss_param12 = function(zeta, alpha, r,
                             sigma, tau1, tau2,
                             w_min, w_max,
                             tt = 50, tt2 = 50, tt3 = 50) {
-  
+
   cc <- gauss(tt2)  # quadrature for Y
-  
+
   ## z_c, z_d are one covariate point
   z_c_vec <- if (is.null(z_c)) numeric(0) else as.numeric(z_c)
   z_d_vec <- if (is.null(z_d)) numeric(0) else as.numeric(z_d)
-  
+
   p_c <- length(z_c_vec)
   p_d <- length(z_d_vec)
-  
+
   ## Basis indexing for beta under:
   ## (1, X, Z_c, Z_d, X Z_c, X Z_d)
   idx_x   <- 2L
@@ -504,31 +504,31 @@ b3_gauss_param12 = function(zeta, alpha, r,
   idx_zd  <- if (p_d > 0) 2L + p_c + seq_len(p_d) else integer(0)
   idx_xzc <- if (p_c > 0) 2L + p_c + p_d + seq_len(p_c) else integer(0)
   idx_xzd <- if (p_d > 0) 2L + p_c + p_d + p_c + seq_len(p_d) else integer(0)
-  
+
   ## Y | X,Z has mean: intercept_x + slope_x * X
   intercept_x <- beta[1] +
     (if (p_c > 0) sum(beta[idx_zc]  * z_c_vec) else 0) +
     (if (p_d > 0) sum(beta[idx_zd]  * z_d_vec) else 0)
-  
+
   slope_x <- beta[idx_x] +
     (if (p_c > 0) sum(beta[idx_xzc] * z_c_vec) else 0) +
     (if (p_d > 0) sum(beta[idx_xzd] * z_d_vec) else 0)
-  
+
   ## X | Z ~ TN(mu_x, tau1^2; [w_min, w_max])
   mu_x <- sum(c(1, z_c_vec, z_d_vec) * alpha1_star)
-  
+
   ## C | Z ~ TN(mu_c, tau2^2; [w_min, w_max])
   mu_c <- sum(c(1, z_c_vec, z_d_vec) * alpha2_star)
-  
+
   ## temp2(c, x) = E_Y[ I{ r(Y, W, delta) <= zeta } | C=c, X=x, Z ]
   ## where W = min(X, C), delta = 1{ X <= C }
   temp2 <- function(c, x) {
     mu_xz  <- intercept_x + slope_x * x
     y_grid <- mu_xz + sigma * cc$x
-    
+
     w_obs     <- min(x, c)
     delta_obs <- as.numeric(x <= c)
-    
+
     vals <- sapply(y_grid, function(y_norm) {
       as.numeric(
         r(y_norm,
@@ -540,47 +540,47 @@ b3_gauss_param12 = function(zeta, alpha, r,
           w_min, w_max) <= zeta
       )
     })
-    
+
     as.numeric(vals %*% cc$w)
   }
-  
+
   ## temp3(c) = E_X[ temp2(c, X) | Z ]
   temp3 <- function(c) {
     x_grid <- seq(w_min, w_max, length.out = tt)
-    
+
     dens_x <- truncnorm::dtruncnorm(x_grid,
                          a    = w_min,
                          b    = w_max,
                          mean = mu_x,
                          sd   = tau1)
     dens_x <- dens_x / sum(dens_x)
-    
+
     RHS <- vapply(seq_len(tt), function(i) {
       temp2(c, x_grid[i])
     }, numeric(1))
-    
+
     as.numeric(RHS %*% dens_x)
   }
-  
+
   ## temp4 = E_C[ temp3(C) | Z ]
   temp4 <- function() {
     c_grid <- seq(w_min, w_max, length.out = tt3)
-    
+
     dens_c <- truncnorm::dtruncnorm(c_grid,
                          a    = w_min,
                          b    = w_max,
                          mean = mu_c,
                          sd   = tau2)
     dens_c <- dens_c / sum(dens_c)
-    
+
     vals <- vapply(c_grid, temp3, numeric(1))
-    
+
     as.numeric(vals %*% dens_c)
   }
-  
+
   temp4() - (1 - alpha)
 }
-#' Internal semiparametric-interval helper (covariate-aware).
+#' Internal PRESCCO-interval helper (covariate-aware).
 #' @noRd
 trans_phi_eff_gauss_param12 = function(beta, y, w, delta,
                                        x_a, b1, b2, b3,
@@ -588,34 +588,34 @@ trans_phi_eff_gauss_param12 = function(beta, y, w, delta,
                                        alpha1_star, alpha2_star,
                                        sigma, tau1, tau2,
                                        w_min, w_max) {
-  
+
   ## z_c, z_d: one covariate point (can be vectors)
   z_c_vec <- if (is.null(z_c)) numeric(0) else as.numeric(z_c)
   z_d_vec <- if (is.null(z_d)) numeric(0) else as.numeric(z_d)
-  
+
   p_c <- length(z_c_vec)
   p_d <- length(z_d_vec)
-  
+
   ## ---- Outcome model indexing: basis (1, X, Z_c, Z_d, X Z_c, X Z_d) ----
   idx_x   <- 2L
   idx_zc  <- if (p_c > 0) 2L + seq_len(p_c) else integer(0)
   idx_zd  <- if (p_d > 0) 2L + p_c + seq_len(p_d) else integer(0)
   idx_xzc <- if (p_c > 0) 2L + p_c + p_d + seq_len(p_c) else integer(0)
   idx_xzd <- if (p_d > 0) 2L + p_c + p_d + p_c + seq_len(p_d) else integer(0)
-  
+
   ## Intercept and slope in X for Y|X,Z
   intercept_x <- beta[1] +
     (if (p_c > 0) sum(beta[idx_zc]  * z_c_vec) else 0) +
     (if (p_d > 0) sum(beta[idx_zd]  * z_d_vec) else 0)
-  
+
   slope_x <- beta[idx_x] +
     (if (p_c > 0) sum(beta[idx_xzc] * z_c_vec) else 0) +
     (if (p_d > 0) sum(beta[idx_xzd] * z_d_vec) else 0)
-  
+
   ## Prior means: X|Z and C|Z
   mu_x_prior <- sum(c(1, z_c_vec, z_d_vec) * alpha1_star)
   mu_c       <- sum(c(1, z_c_vec, z_d_vec) * alpha2_star)
-  
+
   if (delta == 1) {
     ## -------- Uncensored: X = W --------
     ## temp[a(C,Z)] = E[ I(C >= X) a(C,Z) | X,Z ] / E[ I(C >= X) | X,Z ]
@@ -626,19 +626,19 @@ trans_phi_eff_gauss_param12 = function(beta, y, w, delta,
                       b    = w_max,
                       mean = mu_c,
                       sd   = tau2)
-      
+
       num   <- (x_grid >= x) * p
       denom <- sum(num)
-      
+
       ifelse(is.nan(num / denom), 0, num / denom)
     }
-    
+
     ## Interpolate b1 at w
     b1_w <- approx(x_a, b1, w, rule = 2)$y
-    
+
     ## Return: b1(w) + b2^T temp - b3
     return(b1_w + as.numeric(t(b2) %*% temp(x_a, w, y)) - b3)
-    
+
   } else {
     ## -------- Censored: X > W, only W and Y observed --------
     ## temp[a(X,Z)] = E[ I(X > C) a(X,Z) | C, Y, Z ] / E[ I(X > C) | C, Y, Z ]
@@ -647,22 +647,22 @@ trans_phi_eff_gauss_param12 = function(beta, y, w, delta,
       v_x  <- 1 / (slope_x^2 / sigma^2 + 1 / tau1^2)
       eta_x <- v_x * (slope_x * (y - intercept_x) / sigma^2 +
                         mu_x_prior / tau1^2)
-      
+
       p <- truncnorm::dtruncnorm(x_grid,
                       a    = w_min,
                       b    = w_max,
                       mean = eta_x,
                       sd   = sqrt(v_x))
-      
+
       num   <- (x_grid > c) * p
       denom <- sum(num)
-      
+
       ifelse(is.nan(num / denom), 0, num / denom)
     }
-    
+
     ## Interpolate b2 at w
     b2_w <- approx(x_a, b2, w, rule = 2)$y
-    
+
     ## Return: b1^T temp + b2(w) - b3
     return(as.numeric(t(b1) %*% temp(x_a, w, y)) + b2_w - b3)
   }
@@ -706,7 +706,7 @@ build_b123_arrays <- function(zeta_seq, alpha, r,
                               verbose = FALSE) {
   ## --- coerce z_c, z_d to matrices ---
   n <- length(x_a)  # just to have a length for NULL case
-  
+
   if (is.null(z_c_data)) {
     z_c_mat <- matrix(0, nrow = if (is.null(z_d_data)) 1 else length(z_d_data), ncol = 0)
     p_c     <- 0
@@ -717,7 +717,7 @@ build_b123_arrays <- function(zeta_seq, alpha, r,
     z_c_mat <- as.matrix(z_c_data)
     p_c     <- ncol(z_c_mat)
   }
-  
+
   if (is.null(z_d_data)) {
     z_d_mat <- matrix(0, nrow = nrow(z_c_mat), ncol = 0)
     p_d     <- 0
@@ -728,7 +728,7 @@ build_b123_arrays <- function(zeta_seq, alpha, r,
     z_d_mat <- as.matrix(z_d_data)
     p_d     <- ncol(z_d_mat)
   }
-  
+
   ## --- continuous grid for z_c: tensor product of n_c_grid knots per dim ---
   if (p_c > 0) {
     z_c_knots_list <- lapply(seq_len(p_c), function(j) {
@@ -740,7 +740,7 @@ build_b123_arrays <- function(zeta_seq, alpha, r,
     z_c_grid <- matrix(0, nrow = 1, ncol = 0)
   }
   n_zc_grid <- nrow(z_c_grid)
-  
+
   ## --- all combinations of discrete z_d ---
   if (p_d > 0) {
     z_d_levels_list <- lapply(seq_len(p_d), function(j) sort(unique(z_d_mat[, j])))
@@ -749,15 +749,15 @@ build_b123_arrays <- function(zeta_seq, alpha, r,
     z_d_grid <- matrix(0, nrow = 1, ncol = 0)
   }
   n_zd_comb <- nrow(z_d_grid)
-  
+
   ## --- allocate arrays ---
   n_zeta <- length(zeta_seq)
   m      <- length(x_a)
-  
+
   b1_array <- array(NA_real_, dim = c(n_zeta, m, n_zc_grid, n_zd_comb))
   b2_array <- array(NA_real_, dim = c(n_zeta, m, n_zc_grid, n_zd_comb))
   b3_array <- array(NA_real_, dim = c(n_zeta,     n_zc_grid, n_zd_comb))
-  
+
   for (k in seq_along(zeta_seq)) {
     zeta <- zeta_seq[k]
     if (verbose) message("  zeta ", k, "/", length(zeta_seq))
@@ -803,7 +803,7 @@ build_b123_arrays <- function(zeta_seq, alpha, r,
       }
     }
   }
-  
+
   list(
     b1_array = b1_array,   # (n_zeta, m, n_zc_grid, n_zd_comb)
     b2_array = b2_array,   # (n_zeta, m, n_zc_grid, n_zd_comb)
@@ -812,12 +812,12 @@ build_b123_arrays <- function(zeta_seq, alpha, r,
     z_d_grid = z_d_grid
   )
 }
-#' Internal semiparametric-interval helper (covariate-aware).
+#' Internal PRESCCO-interval helper (covariate-aware).
 #' @noRd
 find_sol <- function(x_vec, y_vec) {
   sgn  <- sign(y_vec)
   idxc <- which(diff(sgn) != 0)
-  
+
   if (!length(idxc)) {
     if (all(y_vec > 0)) {
       idx <- which.min(y_vec)
@@ -865,7 +865,7 @@ find_zeta_param_int <- function(y_data, w_data, delta_data,
   n <- length(y_data)
   if (length(w_data) != n || length(delta_data) != n)
     stop("y_data, w_data, delta_data must have same length.")
-  
+
   ## --- coerce z_c, z_d into matrices ---
   if (is.null(z_c_data)) {
     z_c_mat <- matrix(0, nrow = n, ncol = 0); p_c <- 0
@@ -876,7 +876,7 @@ find_zeta_param_int <- function(y_data, w_data, delta_data,
     if (nrow(z_c_data) != n) stop("z_c_data must have n rows.")
     z_c_mat <- as.matrix(z_c_data); p_c <- ncol(z_c_mat)
   }
-  
+
   if (is.null(z_d_data)) {
     z_d_mat <- matrix(0, nrow = n, ncol = 0); p_d <- 0
   } else if (is.null(dim(z_d_data))) {
@@ -886,12 +886,12 @@ find_zeta_param_int <- function(y_data, w_data, delta_data,
     if (nrow(z_d_data) != n) stop("z_d_data must have n rows.")
     z_d_mat <- as.matrix(z_d_data); p_d <- ncol(z_d_mat)
   }
-  
+
   ## --- reconstruct grids from array dims + data ranges ---
   dims_b1    <- dim(b1_array)   # (n_zeta, m, n_zc_grid, n_zd_comb)
   n_zc_grid  <- dims_b1[3]
   n_zd_comb  <- dims_b1[4]
-  
+
   if (p_c > 0) {
     n_c_grid <- round(n_zc_grid^(1 / p_c))
     z_c_knots_list <- lapply(seq_len(p_c), function(j) {
@@ -899,7 +899,7 @@ find_zeta_param_int <- function(y_data, w_data, delta_data,
       seq(rng[1], rng[2], length.out = n_c_grid)
     })
     z_c_grid <- as.matrix(do.call(expand.grid, z_c_knots_list))
-    
+
     knots_list <- lapply(seq_len(p_c), function(j) sort(unique(z_c_grid[, j])))
     L_vec      <- vapply(knots_list, length, integer(1))
     cumprod_L  <- if (p_c == 1) 1L else c(1L, cumprod(L_vec[-length(L_vec)]))
@@ -909,7 +909,7 @@ find_zeta_param_int <- function(y_data, w_data, delta_data,
     knots_list <- list(); cumprod_L <- 1L
     corner_bits <- matrix(0, nrow = 1, ncol = 0)
   }
-  
+
   if (p_d > 0) {
     z_d_levels_list <- lapply(seq_len(p_d), function(j) sort(unique(z_d_mat[, j])))
     z_d_grid <- as.matrix(do.call(expand.grid, z_d_levels_list))
@@ -918,7 +918,7 @@ find_zeta_param_int <- function(y_data, w_data, delta_data,
   } else {
     z_d_grid <- matrix(0, nrow = 1, ncol = 0)
   }
-  
+
   ## precompute z_d index for each obs
   idx_zd_vec <- integer(n)
   if (p_d == 0) {
@@ -930,7 +930,7 @@ find_zeta_param_int <- function(y_data, w_data, delta_data,
       idx_zd_vec[i] <- row_match[1]
     }
   }
-  
+
   ## precompute low/high indices & t for z_c for each obs
   if (p_c > 0) {
     idx_low_mat  <- matrix(0L, n, p_c)
@@ -959,17 +959,17 @@ find_zeta_param_int <- function(y_data, w_data, delta_data,
       }
     }
   }
-  
+
   ## local helper: for a given zeta_idx, get (b1,b2,b3) for all obs
   get_b123_for_zeta <- function(zeta_idx, x_a) {
     m <- length(x_a)
     b1_obs <- matrix(NA_real_, n, m)
     b2_obs <- matrix(NA_real_, n, m)
     b3_obs <- numeric(n)
-    
+
     for (i in seq_len(n)) {
       idx_zd <- idx_zd_vec[i]
-      
+
       if (p_c == 0) {
         idx_zc <- 1L
         b1_obs[i, ] <- b1_array[zeta_idx, , idx_zc, idx_zd]
@@ -980,7 +980,7 @@ find_zeta_param_int <- function(y_data, w_data, delta_data,
         idx_low  <- idx_low_mat[i, ]
         idx_high <- idx_high_mat[i, ]
         t_vec    <- t_mat[i, ]
-        
+
         # 2^p_c corners
         v3    <- 0; w3 <- 0
         for (r in seq_len(nrow(corner_bits))) {
@@ -994,7 +994,7 @@ find_zeta_param_int <- function(y_data, w_data, delta_data,
             }
           }
           row_idx <- 1L + sum((idx_j - 1L) * cumprod_L)
-          
+
           # b1,b2: need over x_a; b3: scalar
           for (xj in seq_len(m)) {
             b1_obs[i, xj] <- if (is.na(b1_obs[i, xj])) 0 else b1_obs[i, xj]
@@ -1012,23 +1012,23 @@ find_zeta_param_int <- function(y_data, w_data, delta_data,
     }
     list(b1 = b1_obs, b2 = b2_obs, b3 = b3_obs)
   }
-  
+
   x_a <- seq(w_min, w_max, length.out = m)
   func_vals <- numeric(length(zeta_seq))
-  
+
   for (zeta_idx in seq_along(zeta_seq)) {
     zeta <- zeta_seq[zeta_idx]
-    
+
     b123 <- get_b123_for_zeta(zeta_idx, x_a)
     b1_obs <- b123$b1
     b2_obs <- b123$b2
     b3_obs <- b123$b3
-    
+
     val <- 0
     for (i in seq_len(n)) {
       z_c_i <- if (p_c > 0) z_c_mat[i, ] else NULL
       z_d_i <- if (p_d > 0) z_d_mat[i, ] else NULL
-      
+
       val <- val + trans_phi_eff_gauss_param12(
         beta        = beta_temp,
         y           = y_data[i],
@@ -1051,7 +1051,7 @@ find_zeta_param_int <- function(y_data, w_data, delta_data,
     }
     func_vals[zeta_idx] <- val
   }
-  
+
   list(
     vec = rbind(zeta_seq, func_vals),
     sol = find_sol(zeta_seq, func_vals)
@@ -1115,7 +1115,7 @@ prediction_coverage_rate = function(zeta, r,
     z_c_mat <- as.matrix(test_z_c_data)
     p_c     <- ncol(z_c_mat)
   }
-  
+
   if (is.null(test_z_d_data)) {
     z_d_mat <- matrix(0, nrow = n, ncol = 0)
     p_d     <- 0
@@ -1174,7 +1174,7 @@ get_zeta_seq_r <- function(alpha, r,
   seq(q * (1 - margin), q * (1 + margin), length.out = length)
 }
 
-#' Semiparametric (SPARCC) prediction half-length, end to end
+#' PRESCCO half-length, end to end
 #'
 #' Convenience wrapper that fits the nuisance models for X | Z and C | Z,
 #' estimates beta by SPARCC, builds the b-arrays, and solves for the efficient
@@ -1224,7 +1224,7 @@ get_zeta_seq_r <- function(alpha, r,
 #'
 #' # Runs end to end: fits both working models, fits beta by SPARCC,
 #' # then solves for the half-length.
-#' fit <- semiparametric_prediction_interval(
+#' fit <- PRESCCO_prediction_interval(
 #'   y, w, delta,
 #'   residual = r1, alpha = 0.1,
 #'   w_min = -1, w_max = 1, seq_length = 3,
@@ -1236,7 +1236,7 @@ get_zeta_seq_r <- function(alpha, r,
 #'
 #' # r1* is the same call under a working model for X | Z; label it so the
 #' # result records which residual was used.
-#' fit_star <- semiparametric_prediction_interval(
+#' fit_star <- PRESCCO_prediction_interval(
 #'   y, w, delta,
 #'   residual = r1, residual_name = "r1star",
 #'   alpha1_star_r = -2, alpha = 0.1,
@@ -1247,7 +1247,7 @@ get_zeta_seq_r <- function(alpha, r,
 #' fit_star$zeta
 #' }
 #' @export
-semiparametric_prediction_interval <- function(y_data, w_data, delta_data,
+PRESCCO_prediction_interval <- function(y_data, w_data, delta_data,
                             z_c_data = NULL, z_d_data = NULL,
                             residual = r1, residual_name = NULL,
                             alpha = 0.1,
@@ -1315,7 +1315,7 @@ semiparametric_prediction_interval <- function(y_data, w_data, delta_data,
     w_min = w_min, w_max = w_max
   )
 
-  list(method        = "semiparametric",
+  list(method        = "PRESCCO",
        alpha         = alpha,
        residual      = residual_name,
        zeta          = zeta,

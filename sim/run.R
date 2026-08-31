@@ -1,5 +1,5 @@
 # =============================================================================
-#  censcovpred simulation study: single entry point
+#  prescco simulation study: single entry point
 #  ---------------------------------------------------------------------------
 #  Sourcing this file defines every simulation function (in dependency order)
 #  in the current session and does nothing else:
@@ -12,14 +12,14 @@
 #
 #      Rscript run.R beta       <beta_out>
 #      Rscript run.R cc         <beta_out>
-#      Rscript run.R semi       <beta_in>  <zeta_out>
+#      Rscript run.R PRESCCO       <beta_in>  <zeta_out>
 #      Rscript run.R conformal  <zeta_out>
 #      Rscript run.R coverage   <beta_in>  <zeta_in_out>
 #      Rscript run.R viz        <zeta_in>  <results_out>
 #      Rscript run.R all        <workdir>
 #
 #  The simulation code is self-contained: it does NOT require installing the
-#  censcovpred package. Only `truncnorm`, `MASS`, and `nleqslv` are needed
+#  prescco package. Only `truncnorm`, `MASS`, and `nleqslv` are needed
 #  (plus `ggplot2` and `patchwork` for the `viz` stage).
 # =============================================================================
 
@@ -55,9 +55,9 @@ for (pkg in c("truncnorm", "MASS", "nleqslv")) {
 .source_order <- c(
   "core.R",           # DGP, EIF/SPARCC machinery, centers/residuals, b-solvers, constants
   "beta.R",           # SPARCC and complete-case beta, configs, drivers
-  "semiparametric.R", # semiparametric zeta solver, 45-run config, drivers
+  "PRESCCO.R",        # PRESCCO zeta solver, 45-run config, drivers
   "conformal.R",      # split CP / full CP / jackknife+, config, drivers
-  "coverage.R",       # coverage rate for the semiparametric method
+  "coverage.R",       # coverage rate for the PRESCCO method
   "visualization.R"   # summary table + combined boxplot figures
 )
 
@@ -88,9 +88,9 @@ if (.sim_is_script) {
     cat("Usage: Rscript run.R <stage> [dirs...]\n\n",
         "  beta       <beta_out>              SPARCC beta   (15 files)\n",
         "  cc         <beta_out>              CC beta       (5 files)\n",
-        "  semi       <beta_in> <zeta_out>    semiparametric intervals (45 runs)\n",
+        "  PRESCCO    <beta_in> <zeta_out>    PRESCCO intervals (45 runs)\n",
         "  conformal  <zeta_out>              split CP, full CP, jackknife+ (15 runs)\n",
-        "  coverage   <beta_in> <zeta_dir>    coverage rate for the semiparametric method\n",
+        "  coverage   <beta_in> <zeta_dir>    coverage rate for the PRESCCO method\n",
         "  viz        <zeta_in> <results_out> summary table + figures\n",
         "  all        <workdir>               every stage above, in order\n",
         sep = "")
@@ -99,7 +99,7 @@ if (.sim_is_script) {
   switch(.stage,
     beta      = run_all_beta_scenarios(out_dir = .a(2, "beta")),
     cc        = run_all_cc_scenarios(out_dir = .a(2, "beta")),
-    semi      = run_all_scenarios(in_dir = .a(2, "beta"), out_dir = .a(3, "zeta")),
+    PRESCCO   = run_all_scenarios(in_dir = .a(2, "beta"), out_dir = .a(3, "zeta")),
     conformal = run_all_conformal_scenarios(out_dir = .a(2, "zeta")),
     coverage  = run_all_pred_cvg(beta_dir = .a(2, "beta"), in_dir = .a(3, "zeta"),
                                  out_dir = .a(3, "zeta")),

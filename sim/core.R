@@ -1,5 +1,5 @@
 # =============================================================================
-#  censcovpred: semiparametric prediction intervals under a censored covariate
+#  prescco: semiparametric prediction intervals under a censored covariate
 #  ---------------------------------------------------------------------------
 #  Core numerical routines for the simulation study (Section: Simulation
 #  Studies). This file implements the data-generating process, the efficient

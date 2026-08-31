@@ -1,7 +1,7 @@
 # =============================================================================
 #  Prediction helpers: covariate basis, interval centers, and residuals
 #  ---------------------------------------------------------------------------
-#  General (data-in) building blocks used by both the semiparametric and
+#  General (data-in) building blocks used by both the PRESCCO and
 #  conformal prediction methods in this package. All functions accept optional
 #  fully-observed covariates: a continuous block `z_c` and a discrete block
 #  `z_d`. When both are NULL the model reduces to the no-covariate case
@@ -12,7 +12,7 @@
 #  so `beta` has length 2 in the no-covariate case and grows with the number
 #  of covariates and their interactions with X.
 #
-#  Package imports are declared centrally in R/censcovpred-package.R.
+#  Package imports are declared centrally in R/prescco-package.R.
 # =============================================================================
 
 #' Covariate basis for the outcome model
@@ -36,7 +36,7 @@
 phi_xz <- function(x, z_c = NULL, z_d = NULL) {
   z_c_vec <- if (is.null(z_c)) numeric(0) else as.numeric(z_c)
   z_d_vec <- if (is.null(z_d)) numeric(0) else as.numeric(z_d)
-  
+
   c(
     1,
     x,
@@ -73,15 +73,15 @@ m1 = function(w, delta, beta,
               alpha1_star, tau1,
               z_c = NULL, z_d = NULL,
               w_min, w_max) {
-  
+
   ## alpha1_star is the coefficient vector for mu_X(Z):
   ## mu_X(Z) = (1, z_c, z_d)^T alpha1_star
   z_c_vec <- if (is.null(z_c)) numeric(0) else as.numeric(z_c)
   z_d_vec <- if (is.null(z_d)) numeric(0) else as.numeric(z_d)
-  
+
   mu_x <- sum(c(1, z_c_vec, z_d_vec) * alpha1_star)
   v_x  <- tau1^2
-  
+
   if (delta == 0) {
     ## Censored case: need E[X | X > w, X in [w_min, w_max], Z]
     if (w >= w_max) {
@@ -91,16 +91,16 @@ m1 = function(w, delta, beta,
       lower <- max(w, w_min)
       a <- (lower  - mu_x) / tau1
       b <- (w_max - mu_x) / tau1
-      
+
       denom <- pnorm(b) - pnorm(a)
       if (denom <= 0) {
         ## Fallback if numerically degenerate
         return(m0(lower, beta, z_c_vec, z_d_vec))
       }
-      
+
       ## Truncated normal mean: E[X | a < (X-mu)/tau1 < b]
       x_exp <- mu_x + tau1 * (dnorm(a) - dnorm(b)) / denom
-      
+
       return(m0(x_exp, beta, z_c_vec, z_d_vec))
     }
   } else {
@@ -145,7 +145,7 @@ r1 = function(y, w, delta, beta,
               alpha1_star, tau1,
               z_c = NULL, z_d = NULL,
               w_min, w_max) {
-  
+
   abs(y - m1(w, delta, beta,
              alpha1_star, tau1,
              z_c, z_d,

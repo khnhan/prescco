@@ -10,7 +10,7 @@
 #  uncensored observations contribute the truncated-normal density. Both z_c
 #  and z_d are optional; with neither, the mean reduces to an intercept.
 #
-#  Package imports are declared centrally in R/censcovpred-package.R.
+#  Package imports are declared centrally in R/prescco-package.R.
 # =============================================================================
 
 #' Maximum-likelihood fit of the eta1 model X | Z

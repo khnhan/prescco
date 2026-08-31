@@ -137,16 +137,16 @@ test_that("split conformal attains roughly nominal coverage on fresh data", {
 
 
 # The remaining exports (build_b123_arrays, find_zeta_param_int,
-# semiparametric_prediction_interval, full_conformal_prediction_interval, jackknife_plus_prediction_interval) are the expensive
+# PRESCCO_prediction_interval, full_conformal_prediction_interval, jackknife_plus_prediction_interval) are the expensive
 # end-to-end paths. These smoke tests use the smallest grids that still
-# exercise the code, and are skipped unless CENSCOVPRED_SLOW_TESTS is set:
+# exercise the code, and are skipped unless PRESCCO_SLOW_TESTS is set:
 #
-#   Sys.setenv(CENSCOVPRED_SLOW_TESTS = "true"); devtools::test()
+#   Sys.setenv(PRESCCO_SLOW_TESTS = "true"); devtools::test()
 
 skip_unless_slow <- function() {
   testthat::skip_if_not(
-    nzchar(Sys.getenv("CENSCOVPRED_SLOW_TESTS")),
-    "set CENSCOVPRED_SLOW_TESTS to run the end-to-end tests"
+    nzchar(Sys.getenv("PRESCCO_SLOW_TESTS")),
+    "set PRESCCO_SLOW_TESTS to run the end-to-end tests"
   )
 }
 
@@ -174,11 +174,11 @@ test_that("build_b123_arrays returns arrays of the documented shape", {
   expect_true(all(vapply(out, function(a) all(is.finite(a)), logical(1))))
 })
 
-test_that("semiparametric_prediction_interval runs end to end and returns a positive half-length", {
+test_that("PRESCCO_prediction_interval runs end to end and returns a positive half-length", {
   skip_unless_slow()
   d <- make_data(n = 150, seed = 141, alpha2 = 2)
 
-  out <- semiparametric_prediction_interval(
+  out <- PRESCCO_prediction_interval(
     y_data = d$y, w_data = d$w, delta_data = d$delta,
     residual = r1, alpha = 0.1,
     w_min = d$w_min, w_max = d$w_max,
@@ -194,7 +194,7 @@ test_that("semiparametric_prediction_interval runs end to end and returns a posi
                     "beta", "sigma", "zeta_seq", "zeta_list") %in% names(out)))
   expect_length(out$beta, 2)
   expect_gt(out$sigma, 0)
-  expect_equal(out$method, "semiparametric")
+  expect_equal(out$method, "PRESCCO")
   expect_length(out$zeta_seq, 3)
   expect_named(out$zeta, "r1")
   expect_true(is.finite(out$zeta))

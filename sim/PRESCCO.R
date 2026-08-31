@@ -1,4 +1,4 @@
-#' Run one semiparametric-prediction simulation scenario
+#' Run one PRESCCO method simulation scenario
 #'
 #' Reproduces a single driver from the original simulation scripts: it builds
 #' the \eqn{b_1, b_2, b_3} arrays on a grid of half-length values \eqn{\zeta}

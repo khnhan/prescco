@@ -1,7 +1,7 @@
-# Simulation study (companion to censcovpred)
+# Simulation study (companion to prescco)
 
 The simulation study behind the package. **Self-contained** and
-**no-covariate**: nothing here needs `library(censcovpred)`. Shared helpers are
+**no-covariate**: nothing here needs `library(prescco)`. Shared helpers are
 prefixed `sim_` so they never collide with the general library in `../R/`.
 
 ## Layout

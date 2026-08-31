@@ -1,21 +1,20 @@
 # =============================================================================
-#  Beta estimation for censcovpred: SPARCC and complete-case
+#  Beta estimation for prescco: SPARCC and complete-case
 #  ---------------------------------------------------------------------------
 #  Two estimators of the outcome coefficients:
 #
-#    * SPARCC  -- the semiparametric-efficient estimator, one file per
+#    * SPARCC  -- the semiparametrically efficient estimator, one file per
 #                 (censoring level, nuisance specification). Prerequisite for
-#                 the semiparametric prediction stage.
+#                 the PRESCCO prediction.
 #    * CC      -- complete-case least squares, one file per censoring level.
 #                 A comparison estimator; nothing downstream consumes it.
 #
 #  ---------------------------------------------------------------------------
-#  SPARCC. Prerequisite for the semiparametric method only: produces the
-#  beta_param12_<tag>.Rdata files consumed by the semiparametric stage
+#  SPARCC. Prerequisite for the PRESCCO method: produces the
+#  beta_param12_<tag>.Rdata files consumed by the PRESCCO prediction stage
 #  (run_scenario). Each file contains a matrix `result_beta` with
 #  rows = length(beta) and columns = M replicates, column k being the SPARCC
-#  estimate for replicate k under the given nuisance specification. The
-#  conformal methods do not use these files.
+#  estimate for replicate k under the given nuisance specification.
 # =============================================================================
 
 #' Estimate beta over M replicates for one nuisance specification
@@ -59,7 +58,7 @@ run_beta_scenario <- function(tag, alpha2,
 
 #' Build the beta-estimation configuration table
 #'
-#' Every censoring level x nuisance specification the semiparametric method
+#' Every censoring level x nuisance specification the PRESCCO method
 #' consumes: 5 levels x \{correct, mis1, mis2\} = 15 files. Beta does not
 #' depend on the residual, so the \code{r1}, \code{r2}, and \code{r1*} runs at
 #' a given (level, spec) all read the same file. The misspecified-eta2 mean

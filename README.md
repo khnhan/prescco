@@ -1,86 +1,96 @@
-# censcovpred
+# prescco
+
+<u>PRE</u>diction with <u>S</u>emiparametric Efficiency under a
+right-<u>C</u>ensored <u>CO</u>variate.
 
 Prediction intervals for an outcome when one of the covariates is a
 right-censored time-to-event variable.
 
 ## The problem
 
-You want to predict an outcome `Y` from a covariate `X` that is a time to some
+You want to predict an outcome $Y$ from a covariate $X$ that is a time to some
 event — time to progression, time to failure, age at onset. For some subjects
-that event has not happened by the end of follow-up, so `X` is never observed.
+that event has not happened by the end of follow-up, so $X$ is never observed.
 What you observe instead is
 
-```
-W     = min(X, C)          the earlier of the event time and the censoring time
-Delta = I(X <= C)          1 if the event was observed, 0 if censored
-```
+$$
+W = \min(X, C), \qquad \Delta = I(X \le C)
+$$
 
-When `Delta = 1` the event happened and `W = X`. When `Delta = 0` all you know
-is that `X > W`.
+the earlier of the event time and the censoring time, together with an
+indicator of which one it was. When $\Delta = 1$ the event happened and
+$W = X$. When $\Delta = 0$ all you know is that $X > W$.
 
 Two obvious approaches both fail:
 
-* **Regress `Y` on `W`.** For censored subjects `W` understates `X`, so the
+* **Regress $Y$ on $W$.** For censored subjects $W$ understates $X$, so the
   fit is attenuated and the intervals end up centered in the wrong place.
 * **Drop the censored subjects.** Unbiased under independent censoring, but it
-  throws away every observation with `Delta = 0` — often most of the sample
+  throws away every observation with $\Delta = 0$ — often most of the sample
   under heavy censoring — and the resulting intervals are needlessly wide.
 
 This package keeps the censored observations and uses what they do tell you:
-that `X` exceeded `W`.
+that $X$ exceeded $W$.
 
-A prediction interval here has two pieces: a **center** `m`, which predicts `Y`
-from the observed data, and a **half-length** `zeta`, chosen so that
+A prediction interval here has two pieces: a **center** $m$, which predicts $Y$
+from the observed data, and a **half-length** $\zeta$, chosen so that
 
-```
-P( |Y - m| <= zeta )  =  1 - alpha
-```
+$$
+P\left( \lvert Y - m \rvert \le \zeta \right) = 1 - \alpha
+$$
 
-The interval is `[m - zeta, m + zeta]`. Estimating `m` needs the outcome
-coefficients `beta`; estimating `zeta` needs the distribution of the residual
-`|Y - m|`. Both are complicated by `X` being only partly observed.
+The interval is $[m - \zeta,\ m + \zeta]$. Estimating $m$ needs the outcome
+coefficients $\beta$; estimating $\zeta$ needs the distribution of the residual
+$\lvert Y - m \rvert$. Both are complicated by $X$ being only partly observed.
 
 ## The model
 
-The outcome is linear in a basis over `X` and any fully observed covariates
-`Z`, split into a continuous block `z_c` and a discrete block `z_d`:
+The outcome is linear in a basis over $X$ and any fully observed covariates
+$Z$, split into a continuous block $Z_c$ and a discrete block $Z_d$:
 
-```
-phi_xz(x, z_c, z_d) = (1, x, z_c, z_d, x * z_c, x * z_d)
-Y | X, Z            ~ N( phi_xz(X, Z)' beta , sigma^2 )
-```
+$$
+\phi_{XZ}(x, z_c, z_d) = (1,\ x,\ z_c,\ z_d,\ x z_c,\ x z_d)
+$$
 
-With no covariates this reduces to `Y | X ~ N(beta_1 + beta_2 X, sigma^2)` and
-`beta` has length 2. `phi_xz()` is exported precisely so you can read off which
-coefficient is which when `beta` is longer.
+$$
+Y \mid X, Z \ \sim\ N\left( \phi_{XZ}(X, Z)^\top \beta,\ \sigma^2 \right)
+$$
+
+With no covariates this reduces to
+$Y \mid X \sim N(\beta_1 + \beta_2 X, \sigma^2)$ and $\beta$ has length 2.
+`phi_xz()` is exported precisely so you can read off which coefficient is which
+when $\beta$ is longer.
 
 Two **working nuisance models** describe the event and censoring times. Both
-are truncated normal on `[w_min, w_max]` with means linear in `Z`:
+are truncated normal on $[w_{\min}, w_{\max}]$ with means linear in $Z$:
 
-```
-eta1:  X | Z  ~  TruncNormal( (1, z_c, z_d)' alpha1 , tau1^2 )
-eta2:  C | Z  ~  TruncNormal( (1, z_c, z_d)' alpha2 , tau2^2 )
-```
+$$
+\eta_1: \quad X \mid Z \ \sim\ \mathrm{TruncNormal}\left( (1, z_c, z_d)^\top \alpha_1,\ \tau_1^2 \right)
+$$
 
-They are *working* models: `f_X|Z` and `f_C|Z` are generally unknown, so what
-the methods actually use is a specification of them that may or may not be
-right. `eta1` is written `f*_X|Z` below when the distinction matters. The
-simulation study evaluates each method under a correct specification and under
-two deliberate misspecifications.
+$$
+\eta_2: \quad C \mid Z \ \sim\ \mathrm{TruncNormal}\left( (1, z_c, z_d)^\top \alpha_2,\ \tau_2^2 \right)
+$$
 
-## Estimating beta
+They are *working* models: $f_{X \mid Z}$ and $f_{C \mid Z}$ are generally
+unknown, so what the methods actually use is a specification of them that may
+or may not be right. $\eta_1$ is written $f^{*}_{X \mid Z}$ below when the
+distinction matters. The simulation study evaluates each method under a correct
+specification and under two deliberate misspecifications.
+
+## Estimating $\beta$
 
 Two estimators, deliberately named alike:
 
-* **`find_beta_cc()`** — complete-case least squares. Regresses `Y` on the
-  design built from `(W, Z)` using only the `Delta = 1` rows, where `W = X`.
+* **`find_beta_cc()`** — complete-case least squares. Regresses $Y$ on the
+  design built from $(W, Z)$ using only the $\Delta = 1$ rows, where $W = X$.
   Simple and consistent under independent censoring, but discards data.
 
-* **`find_beta_sparcc()`** — the semiparametric-efficient estimator. It solves
+* **`find_beta_sparcc()`** — the semiparametrically efficient estimator. It solves
   an estimating equation built from the model's efficient influence function,
   which uses *every* observation: for a censored subject it integrates the
-  score over the conditional distribution of `X` given `X > W` and `Z` implied
-  by `eta1`. This recovers information the complete-case fit discards, at the
+  score over the conditional distribution of $X$ given $X > W$ and $Z$ implied
+  by $\eta_1$. This recovers information the complete-case fit discards, at the
   cost of needing the working models and a numerical solve.
 
 ## Interval centers and residuals
@@ -88,95 +98,100 @@ Two estimators, deliberately named alike:
 Choosing the center is not straightforward here. The natural choice is the
 conditional mean of the outcome given the covariates,
 
-```
-m0(X, Z, beta) = E( Y | X, Z, beta ) = phi_xz(X, Z)' beta
-```
+$$
+m_0(X, Z, \beta) = E\left( Y \mid X, Z, \beta \right) = \phi_{XZ}(X, Z)^\top \beta
+$$
 
-but `X` is not always observed, so `m0` is unusable as a center. The center has
-to be a function of the observed data `(W, Delta, Z)`. Three such centers are
-available.
+but $X$ is not always observed, so $m_0$ is unusable as a center. The center
+has to be a function of the observed data $(W, \Delta, Z)$. Three such centers
+are available.
 
-**`m1(W, Delta, Z, beta)`** — the conditional mean given what was actually
+**$m_1(W, \Delta, Z, \beta)$** — the conditional mean given what was actually
 observed:
 
-```
-m1 = E( Y | W, Delta, Z, beta, f_X|Z )
-```
+$$
+m_1 = E\left( Y \mid W, \Delta, Z, \beta, f_{X \mid Z} \right)
+$$
 
-Under noninformative censoring, `C` independent of `(X, Y)` given `Z`, this
+Under noninformative censoring, $C$ independent of $(X, Y)$ given $Z$, this
 splits into the two cases:
 
-```
-         Delta = 1 :  m0(W, Z, beta)                        (X was observed, X = W)
+$$
+m_1 =
+\begin{cases}
+m_0(W, Z, \beta), & \Delta = 1 \\[2.5ex]
+\dfrac{E\left[\, I(X > W)\, m_0(X, Z, \beta) \mid W, Z, f_{X \mid Z} \,\right]}
+      {E\left[\, I(X > W) \mid W, Z, f_{X \mid Z} \,\right]}, & \Delta = 0
+\end{cases}
+$$
 
-         Delta = 0 :  E{ I(X > W) m0(X, Z, beta) | W, Z, f_X|Z }
-                      ------------------------------------------
-                          E{ I(X > W)            | W, Z, f_X|Z }
-```
+That is, when the event was seen ($X$ was observed, $X = W$) you use $m_0$ at
+the observed $X$; when it was censored you average $m_0(X, Z, \beta)$ over the
+part of the distribution of $X$ that is still possible, namely $X > W$.
 
-That is, when the event was seen you use `m0` at the observed `X`; when it was
-censored you average `m0(X, Z, beta)` over the part of the distribution of `X`
-that is still possible, namely `X > W`.
+**$m_1^{*}(W, \Delta, Z, \beta)$** — the same thing computed under a *working*
+model. $m_1$ requires the true $f_{X \mid Z}$, which is generally unknown.
+Replacing it with a possibly misspecified working model $f^{*}_{X \mid Z}$
+gives
 
-**`m1*(W, Delta, Z, beta)`** — the same thing computed under a *working* model.
-`m1` requires the true `f_X|Z`, which is generally unknown. Replacing it with a
-possibly misspecified working model `f*_X|Z` gives
-
-```
-m1* = E( Y | W, Delta, Z, beta, f*_X|Z )
-```
+$$
+m_1^{*} = E\left( Y \mid W, \Delta, Z, \beta, f^{*}_{X \mid Z} \right)
+$$
 
 This is the center you can actually compute in practice, and it is why the
-package treats the `X | Z` model as a *working* model throughout.
+package treats the $X \mid Z$ model as a *working* model throughout.
 
-**`m2(W, Delta, Z, beta)`** — sidesteps the integration entirely:
+**$m_2(W, \Delta, Z, \beta)$** — sidesteps the integration entirely:
 
-```
-m2 = m0(W, Z, beta)
-```
+$$
+m_2 = m_0(W, Z, \beta)
+$$
 
-It uses `W` in place of `X` even when `Delta = 0`. It is biased when censoring
-is present, but it is cheap and it does not depend on the `X | Z` model at all,
-so nothing about it can be misspecified.
+It uses $W$ in place of $X$ even when $\Delta = 0$. It is biased when censoring
+is present, but it is cheap and it does not depend on the $X \mid Z$ model at
+all, so nothing about it can be misspecified.
 
-All three depend on the unknown `beta`, so the center is written generically as
-`m(W, Delta, Z, beta)`.
+All three depend on the unknown $\beta$, so the center is written generically
+as $m(W, \Delta, Z, \beta)$.
 
 Each center gives a residual, and the package labels them:
 
-| Center | Residual | Depends on `f_X\|Z` |
+| Center | Residual | Depends on $f_{X \mid Z}$ |
 |---|---|---|
-| `m1(W, Delta, Z, beta)`  | `r1  = \|Y - m1\|`  | yes, the true model |
-| `m1*(W, Delta, Z, beta)` | `r1* = \|Y - m1*\|` | yes, a working model |
-| `m2(W, Delta, Z, beta)`  | `r2  = \|Y - m2\|`  | no |
+| $m_1(W, \Delta, Z, \beta)$ | $r_1 = \lvert Y - m_1 \rvert$ | yes, the true model |
+| $m_1^{*}(W, \Delta, Z, \beta)$ | $r_1^{*} = \lvert Y - m_1^{*} \rvert$ | yes, a working model |
+| $m_2(W, \Delta, Z, \beta)$ | $r_2 = \lvert Y - m_2 \rvert$ | no |
 
 Other centers are possible; these three are the natural ones in this setting.
 
-In code, `m0`, `m1`, and `m2` are internal — you reach them through `r1()` and
-`r2()` and through the interval functions. `m2` has no separate function, since
-it is just `m0` evaluated at `W`; that is what `r2()` computes. `r1*` has no
-separate function either: it is `r1()` evaluated under a working model, which
-you select through the `alpha1_star_r` (and optionally `tau1_r`) argument.
-Passing the true `X | Z` parameters there gives `r1`; passing working-model
-values gives `r1*`.
+Throughout, math names the estimands and backticks name the code: $r_1$ is the
+residual, `r1()` is the function that computes it.
+
+In code, $m_0$, $m_1$, and $m_2$ are internal — you reach them through `r1()`
+and `r2()` and through the interval functions. $m_2$ has no separate function,
+since it is just $m_0$ evaluated at $W$; that is what `r2()` computes.
+$r_1^{*}$ has no separate function either: it is `r1()` evaluated under a
+working model, which you select through the `alpha1_star_r` (and optionally
+`tau1_r`) argument. Passing the true $X \mid Z$ parameters there gives $r_1$;
+passing working-model values gives $r_1^{*}$.
 
 ## Estimating the half-length
 
 Two families, with different guarantees.
 
-**Semiparametric.** `semiparametric_prediction_interval()` treats
-`P(|Y - m| <= zeta) = 1 - alpha` as an estimating equation in `zeta` and solves
-it using the efficient influence function for that probability, again
-integrating over the unobserved `X` for censored subjects. Efficient when the
-working models are right; its accuracy degrades as they get worse, which is
-what the misspecification settings are designed to probe.
+**PRESCCO.** `prescco_prediction_interval()` treats
+$P(\lvert Y - m \rvert \le \zeta) = 1 - \alpha$ as an estimating equation in
+$\zeta$ and solves it using the efficient influence function for that
+probability, again integrating over the unobserved $X$ for censored subjects.
+Efficient when the working models are right; its accuracy degrades as they get
+worse, which is what the misspecification settings are designed to probe.
 
-**Conformal.** Three methods that calibrate `zeta` from observed residual
+**Conformal.** Three methods that calibrate $\zeta$ from observed residual
 quantiles rather than from a model, and so stay valid in finite samples whether
 or not the working models are right:
 
-* `split_conformal_prediction_interval()` — fits `beta` on one half of the
-  data and takes the `1 - alpha` empirical quantile of the residuals on the
+* `split_conformal_prediction_interval()` — fits $\beta$ on one half of the
+  data and takes the $1 - \alpha$ empirical quantile of the residuals on the
   other half. One fit, so it is fast, but it pays for the split in width.
 * `full_conformal_prediction_interval()` — for each candidate outcome value,
   refits with that point appended and asks whether its residual is extreme
@@ -185,15 +200,15 @@ or not the working models are right:
 * `jackknife_plus_prediction_interval()` — builds the interval from
   leave-one-out fits and their residuals; a middle ground between the two.
 
-**Coverage rate.** Given a fitted `zeta`, `prediction_coverage_rate()` reports
+**Coverage rate.** Given a fitted $\zeta$, `prediction_coverage_rate()` reports
 the fraction of a test set whose residual falls inside it — the empirical check
-on whether the nominal `1 - alpha` was achieved.
+on whether the nominal $1 - \alpha$ was achieved.
 
 ## Installation
 
 ```r
 # install.packages("remotes")
-remotes::install_github("<your-account>/censcovpred")
+remotes::install_github("<your-account>/prescco")
 ```
 
 Dependencies: `MASS`, `truncnorm`, `nleqslv`, `stats`.
@@ -216,7 +231,7 @@ alpha2_star <- a2[-length(a2)];  tau2 <- a2[length(a2)]
 
 Each returns the mean coefficients followed by the standard deviation.
 
-### Estimate beta
+### Estimate $\beta$
 
 ```r
 cc     <- find_beta_cc(y_data, w_data, delta_data, z_c_data, z_d_data)
@@ -229,13 +244,14 @@ cc$beta_cc
 sparcc$beta_hat
 ```
 
-### Semiparametric interval
+### PRESCCO interval
 
-Runs end to end — fits the nuisance models, fits `beta` by SPARCC, builds the
-influence-function arrays, solves for `zeta`. Supply any piece to skip its step.
+Runs end to end — fits the nuisance models, fits $\beta$ by SPARCC, builds the
+influence-function arrays, solves for $\zeta$. Supply any piece to skip its
+step.
 
 ```r
-fit <- semiparametric_prediction_interval(
+fit <- PRESCCO_prediction_interval(
   y_data, w_data, delta_data, z_c_data, z_d_data,
   residual = r1, alpha = 0.1, w_min = 0, w_max = 8
 )
@@ -243,12 +259,12 @@ fit$zeta            # half-length, named by the residual
 fit$coverage_rate   # NA unless test data was supplied
 ```
 
-`r1*` is the same call with working-model values in `alpha1_star_r` (and
-`tau1_r`) instead of the true `X | Z` parameters — label it so the result
+$r_1^{*}$ is the same call with working-model values in `alpha1_star_r` (and
+`tau1_r`) instead of the true $X \mid Z$ parameters — label it so the result
 records which residual it is:
 
 ```r
-fit_star <- semiparametric_prediction_interval(
+fit_star <- PRESCCO_prediction_interval(
   y_data, w_data, delta_data,
   residual = r1, residual_name = "r1star",
   alpha1_star_r = wrong_alpha1, alpha = 0.1, w_min = 0, w_max = 8
@@ -295,12 +311,12 @@ list(
 
 | Function | Test set | Residuals per call |
 |---|---|---|
-| `semiparametric_prediction_interval()` | optional | one (the `residual` argument) |
+| `PRESCCO_prediction_interval()` | optional | one (the `residual` argument) |
 | `split_conformal_prediction_interval()` | optional | all three |
 | `full_conformal_prediction_interval()` | **required** | all three |
 | `jackknife_plus_prediction_interval()` | **required** | all three |
 
-The asymmetry is real, not an oversight. The semiparametric and split-conformal
+The PRESCCO and split conformal prediction
 methods produce a single half-length from training data alone, so a test set is
 optional: supply one and `coverage_rate` is filled in, omit it and the entries
 are `NA`. Full conformal and jackknife+ construct a *different* interval at
@@ -314,34 +330,34 @@ Twelve. Everything else is internal.
 
 | Function | Purpose |
 |---|---|
-| `find_alpha1_MLE()` | MLE for the working `X \| Z` model |
-| `find_alpha2_MLE()` | MLE for the working `C \| Z` model |
+| `find_alpha1_MLE()` | MLE for the working $X \mid Z$ model |
+| `find_alpha2_MLE()` | MLE for the working $C \mid Z$ model |
 | `find_beta_cc()` | Complete-case least squares |
-| `find_beta_sparcc()` | Semiparametric-efficient estimator |
-| `semiparametric_prediction_interval()` | Half-length via the efficient influence function |
+| `find_beta_sparcc()` | Semiparametrically efficient estimator |
+| `PRESCCO_prediction_interval()` | Half-length via the efficient influence function |
 | `split_conformal_prediction_interval()` | Split conformal |
 | `full_conformal_prediction_interval()` | Full conformal |
 | `jackknife_plus_prediction_interval()` | Jackknife+ |
 | `prediction_coverage_rate()` | Coverage of a fitted half-length on a test set |
-| `phi_xz()` | Covariate basis fixing the layout of `beta` |
+| `phi_xz()` | Covariate basis fixing the layout of $\beta$ |
 | `r1()`, `r2()` | Residuals, passed to the two functions that take one |
 
 ## Package layout
 
 ```
-censcovpred/
+prescco/
 ├── DESCRIPTION                     # metadata and dependencies
 ├── NAMESPACE                       # exports / imports (regenerate with devtools::document())
 ├── LICENSE, LICENSE.md             # MIT license
 ├── README.md
 ├── .Rbuildignore                   # keeps sim/ out of the installed package
 ├── R/                              # the installed library
-│   ├── censcovpred-package.R           # package doc; central @importFrom declarations
+│   ├── prescco-package.R               # package doc; central @importFrom declarations
 │   ├── predict_helpers.R               # phi_xz basis, m0/m1, r1/r2 (Z-optional)
 │   ├── nuisance.R                      # find_alpha1_MLE, find_alpha2_MLE
-│   ├── eif_internals.R                 # efficient-score helpers
+│   ├── eif_internals.R                 # efficient influence function helpers
 │   ├── beta_fit.R                      # find_beta_cc, find_beta_sparcc
-│   ├── predict_semiparametric.R        # semiparametric_prediction_interval
+│   ├── predict_PRESCCO.R               # PRESCCO_prediction_interval
 │   └── predict_conformal.R             # the three conformal methods
 ├── tests/                          # testthat suite
 ├── sim/                            # simulation study (not installed)
@@ -359,28 +375,29 @@ Tests across five files. Most run in seconds; the end-to-end paths fit nuisance
 models on every call and are gated behind an environment variable:
 
 ```r
-Sys.setenv(CENSCOVPRED_SLOW_TESTS = "true")
+Sys.setenv(PRESCCO_SLOW_TESTS = "true")
 devtools::test()
 ```
 
 The suite checks properties that should hold regardless of implementation:
-`m1` collapses to `m0(W, Z, beta)` when `Delta = 1`; the vectorized internals agree with
-their scalar counterparts elementwise across every combination of covariate
-blocks; `find_beta_cc` reproduces `lm()` on the complete cases;
-`prediction_coverage_rate` is monotone in `zeta`; split-conformal half-lengths
-widen as `alpha` shrinks; and all four methods return the same shape.
+$m_1$ collapses to $m_0(W, Z, \beta)$ when $\Delta = 1$; the vectorized
+internals agree with their scalar counterparts elementwise across every
+combination of covariate blocks; `find_beta_cc` reproduces `lm()` on the
+complete cases; `prediction_coverage_rate` is monotone in $\zeta$;
+split conformal prediction half-lengths widen as $\alpha$ shrinks; and all four methods
+return the same shape.
 
 ## Simulation study
 
 The simulation study lives in `sim/`. It is excluded from the
 package build, has no covariates, prefixes its helpers `sim_`, and is run by
-sourcing `sim/run.R` rather than through `library(censcovpred)` — so it stays
+sourcing `sim/run.R` rather than through `library(prescco)` — so it stays
 insulated from the library API and can run without installing the package.
 
-It crosses five censoring levels with three residuals (`r1`, `r2`, `r1*`),
-running the semiparametric method under three nuisance specifications (correct,
-`mis1`, `mis2`) alongside all three conformal methods, then compares
-half-lengths and coverage rates.
+It crosses five censoring levels with three residuals ($r_1$, $r_2$,
+$r_1^{*}$), running the PRESCCO method under three nuisance
+specifications (correct, `mis1`, `mis2`) alongside all three conformal methods,
+then compares half-lengths and coverage rates.
 
 ```sh
 cd sim
@@ -393,7 +410,7 @@ figures from a full run are in `inst/results/figures/`.
 
 ## Author
 
-Kihyun Han (kqh5716@psu.edu)
+Kihyun Han (khnhan@psu.edu)
 
 ## License
 
