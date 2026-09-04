@@ -9,11 +9,11 @@
 Constructs prediction intervals for an outcome when a time-to-event covariate is subject to right-censoring. The package accommodates optional fully observed continuous and discrete covariates and provides maximum-likelihood estimation of working models for the censored covariate and censoring time, complete-case and SPARCC estimators of the outcome-model coefficients, and prediction intervals based on PRESCCO, split conformal prediction, full conformal prediction, and jackknife+. PRESCCO is doubly robust and semiparametrically efficient when both working nuisance models are correctly specified. The repository also includes a self-contained simulation study under 'sim/'. PRESCCO abbreviates PREdiction with Semiparametric efficiency under a right-Censored COvariate.
 }
 \author{
-\strong{Maintainer}: Kihyun Han \email{kqh5716@psu.edu}
+\strong{Maintainer}: Kihyun Han \email{khnhan@psu.edu}
 
 Authors:
 \itemize{
-  \item Kihyun Han \email{kqh5716@psu.edu}
+  \item Kihyun Han \email{khnhan@psu.edu}
 }
 
 }

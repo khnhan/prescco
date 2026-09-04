@@ -8,73 +8,73 @@ a right-censored time-to-event variable.
 
 ## The problem
 
-Let \(X\) be a time-to-event covariate and \(C\) its censoring time. Instead of
-observing \(X\) for everyone, we observe
+Let $X$ be a time-to-event covariate and $C$ its censoring time. Instead of
+observing $X$ for everyone, we observe
 
-\[
+$$
 W = \min(X,C), \qquad \Delta = I(X \le C).
-\]
+$$
 
-When \(\Delta=1\), \(X=W\) is observed. When \(\Delta=0\), we only know that
-\(X>W\).
+When $\Delta=1$, $X=W$ is observed. When $\Delta=0$, we only know that
+$X>W$.
 
-A prediction interval has a center \(m\) and half-length \(\zeta\),
+A prediction interval has a center $m$ and half-length $\zeta$,
 
-\[
+$$
 [m-\zeta,\;m+\zeta],
-\]
+$$
 
 with target coverage
 
-\[
+$$
 P\{|Y-m|\le \zeta\}=1-\alpha.
-\]
+$$
 
-The package estimates the outcome model, working nuisance models for \(X\mid Z\)
-and \(C\mid Z\), and prediction half-lengths while retaining the censored
+The package estimates the outcome model, working nuisance models for $X\mid Z$
+and $C\mid Z$, and prediction half-lengths while retaining the censored
 observations.
 
 ## Model
 
 The outcome model is linear in the basis
 
-\[
+$$
 \phi_{XZ}(x,z_c,z_d)
 =
 (1,\;x,\;z_c,\;z_d,\;xz_c,\;xz_d),
-\]
+$$
 
 so that
 
-\[
+$$
 Y\mid X,Z
 \sim
 N\{\phi_{XZ}(X,Z)^\top\beta,\sigma^2\}.
-\]
+$$
 
-The fully observed covariates \(Z\) may contain a continuous block \(Z_c\), a
-discrete block \(Z_d\), both, or neither. With no additional covariates,
+The fully observed covariates $Z$ may contain a continuous block $Z_c$, a
+discrete block $Z_d$, both, or neither. With no additional covariates,
 
-\[
+$$
 Y\mid X \sim N(\beta_1+\beta_2X,\sigma^2).
-\]
+$$
 
 The working nuisance models are truncated normal on
-\([w_{\min},w_{\max}]\):
+$[w_{\min},w_{\max}]$:
 
-\[
+$$
 X\mid Z
 \sim
 \operatorname{TruncNormal}
 \{(1,z_c,z_d)^\top\alpha_1,\tau_1^2\},
-\]
+$$
 
-\[
+$$
 C\mid Z
 \sim
 \operatorname{TruncNormal}
 \{(1,z_c,z_d)^\top\alpha_2,\tau_2^2\}.
-\]
+$$
 
 `phi_xz()` returns the outcome-model basis and fixes the coefficient ordering
 used throughout the package.
@@ -84,7 +84,7 @@ used throughout the package.
 Two estimators are available.
 
 - `find_beta_cc()` fits the outcome model using only complete cases
-  (\(\Delta=1\)), for which \(X=W\) is observed. Under the linear outcome model
+  ($\Delta=1$), for which $X=W$ is observed. Under the linear outcome model
   implemented here, this fit is obtained by least squares.
 
 - `find_beta_sparcc()` estimates the outcome-model coefficients with SPARCC,
@@ -94,44 +94,44 @@ Two estimators are available.
 
 The complete-data outcome mean is
 
-\[
+$$
 m_0(X,Z,\beta)
 =
 E(Y\mid X,Z,\beta)
 =
 \phi_{XZ}(X,Z)^\top\beta.
-\]
+$$
 
-Because \(X\) may be censored, the package uses centers based on the observed
-data \((W,\Delta,Z)\).
+Because $X$ may be censored, the package uses centers based on the observed
+data $(W,\Delta,Z)$.
 
-For \(r_1\), the center is
+For $r_1$, the center is
 
-\[
+$$
 m_1(W,\Delta,Z,\beta)
 =
 E\{m_0(X,Z,\beta)\mid W,\Delta,Z\},
-\]
+$$
 
-where censored observations average over the values \(X>W\) allowed by the
-model for \(X\mid Z\). The residual is
+where censored observations average over the values $X>W$ allowed by the
+model for $X\mid Z$. The residual is
 
-\[
+$$
 r_1 = |Y-m_1|.
-\]
+$$
 
-A working version \(r_1^*\) is obtained by evaluating the same residual with
+A working version $r_1^*$ is obtained by evaluating the same residual with
 alternative coefficients and, if desired, an alternative standard deviation
-for the working model for \(X\mid Z\). In code this is done by calling `r1()`
+for the working model for $X\mid Z$. In code this is done by calling `r1()`
 with the corresponding `alpha1_star` and `tau1`.
 
 The second residual uses
 
-\[
+$$
 m_2(W,\Delta,Z,\beta)=m_0(W,Z,\beta),
 \qquad
 r_2=|Y-m_2|.
-\]
+$$
 
 `r1()` and `r2()` are vectorized and accept either single observations or
 vectors of observations.
@@ -250,7 +250,7 @@ fit$zeta
 fit$coverage_rate
 ```
 
-To evaluate \(r_1^*\), supply the coefficients and SD to be used for that
+To evaluate $r_1^*$, supply the coefficients and SD to be used for that
 residual and label the result accordingly:
 
 ```r
@@ -333,7 +333,7 @@ coverage_rate
 ```
 
 PRESCCO returns one residual per call. The three conformal functions report
-\(r_1\), \(r_2\), and \(r_1^*\) together.
+$r_1$, $r_2$, and $r_1^*$ together.
 
 For PRESCCO and split conformal prediction, test data are optional. If test data
 are omitted, `coverage_rate` is `NA`. Full conformal prediction and jackknife+
@@ -344,8 +344,8 @@ that test set.
 
 | Function | Purpose |
 |---|---|
-| `find_alpha1_MLE()` | Fit the working model for \(X\mid Z\) |
-| `find_alpha2_MLE()` | Fit the working model for \(C\mid Z\) |
+| `find_alpha1_MLE()` | Fit the working model for $X\mid Z$ |
+| `find_alpha2_MLE()` | Fit the working model for $C\mid Z$ |
 | `find_beta_cc()` | Complete-case outcome-model fit |
 | `find_beta_sparcc()` | SPARCC outcome-model fit |
 | `PRESCCO_prediction_interval()` | PRESCCO prediction interval |
@@ -354,8 +354,8 @@ that test set.
 | `jackknife_plus_prediction_interval()` | Jackknife+ prediction interval |
 | `prediction_coverage_rate()` | Empirical coverage of a fitted half-length |
 | `phi_xz()` | Outcome-model basis |
-| `r1()` | Residual \(r_1\), or \(r_1^*\) under alternative working-model values |
-| `r2()` | Residual \(r_2\) |
+| `r1()` | Residual $r_1$, or $r_1^*$ under alternative working-model values |
+| `r2()` | Residual $r_2$ |
 
 ## Package structure
 
@@ -412,12 +412,3 @@ Rscript sim/visualization.R
 Outputs from the visualization script are written to `sim/results/`.
 
 See `sim/README.md` for the simulation design and reproducibility details.
-
-## Development checks
-
-After modifying the package source:
-
-```r
-devtools::document()
-devtools::check()
-```

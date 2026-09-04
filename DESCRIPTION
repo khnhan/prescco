@@ -4,7 +4,7 @@ Title: Prediction Intervals Under a Right-Censored Covariate
 Version: 0.1.0
 Authors@R:
     person("Kihyun", "Han",
-           email = "kqh5716@psu.edu",
+           email = "khnhan@psu.edu",
            role = c("aut", "cre"))
 Description: Constructs prediction intervals for an outcome when a
   time-to-event covariate is subject to right-censoring. The package
