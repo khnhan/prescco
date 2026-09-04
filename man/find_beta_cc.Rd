@@ -8,33 +8,45 @@ find_beta_cc(y_data, w_data, delta_data, z_c_data = NULL, z_d_data = NULL)
 }
 \arguments{
 \item{y_data, w_data, delta_data}{Outcome, observed time, and event indicator
-(length n).}
+(length \code{n}).}
 
-\item{z_c_data, z_d_data}{Optional continuous / discrete covariates.}
+\item{z_c_data, z_d_data}{Optional continuous and discrete covariates.}
 }
 \value{
-A list with `beta_cc` (coefficient vector), `sigma_cc` (residual
-  standard deviation), `idx_cc` (indices of the complete cases used), and
-  `p_c` / `p_d` (number of continuous / discrete covariates).
+A list containing:
+\itemize{
+  \item \code{beta_cc}: estimated coefficient vector;
+  \item \code{sigma_cc}: residual standard deviation;
+  \item \code{design_cc}: complete-case design matrix;
+  \item \code{idx_cc}: indices of the complete cases;
+  \item \code{p_c}, \code{p_d}: numbers of continuous and discrete
+    covariates.
+}
 }
 \description{
-Fits beta by ordinary least squares on the uncensored observations
-(delta == 1), where X = W is observed, using the phi_xz design.
+Estimates the outcome-model coefficient vector using only uncensored
+observations (\code{delta == 1}), for which \code{X = W} is observed.
+For the linear outcome model implemented here, the complete-case estimator
+is obtained by least squares
 }
 \examples{
 set.seed(1)
-n  <- 200
-x  <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
-cc <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
-w  <- pmin(x, cc)
-delta <- as.integer(x <= cc)
-y  <- 3 * x + rnorm(n)          # beta = c(0, 3)
+n <- 200
+x_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
+c_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
+w_vec <- pmin(x_vec, c_vec)
+delta_vec <- as.integer(x_vec <= c_vec)
+y_vec <- 3 * x_vec + rnorm(n)
 
-fit <- find_beta_cc(y, w, delta)
-fit$beta_cc          # compare with the true c(0, 3)
-fit$sigma_cc
-length(fit$idx_cc)   # how many observations were actually used
+fit_cc <- find_beta_cc(y_vec, w_vec, delta_vec)
+fit_cc$beta_cc
+fit_cc$sigma_cc
+length(fit_cc$idx_cc)
 
-# Equivalent to least squares on the uncensored rows only
-coef(lm(y[delta == 1] ~ w[delta == 1]))
+# Under the linear outcome model, this agrees with a least-squares fit
+# using the uncensored observations.
+stats::coef(stats::lm(
+  y_vec[delta_vec == 1] ~ w_vec[delta_vec == 1]
+))
+
 }

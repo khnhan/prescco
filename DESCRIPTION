@@ -1,33 +1,30 @@
 Package: prescco
 Type: Package
-Title: Semiparametric Prediction Intervals Under a Censored Covariate
+Title: Prediction Intervals Under a Right-Censored Covariate
 Version: 0.1.0
 Authors@R:
-    person("Kihyun", "Han", email = "kqh5716@psu.edu", role = c("aut", "cre"))
+    person("Kihyun", "Han",
+           email = "kqh5716@psu.edu",
+           role = c("aut", "cre"))
 Description: Constructs prediction intervals for an outcome when a
-    time-to-event covariate is subject to right-censoring. The package provides
-    a general, data-in toolkit that operates on supplied data with optional
-    fully-observed covariates (continuous and discrete): maximum-likelihood
-    estimation of the working X | Z and C | Z models, two coefficient
-    estimators (complete-case least squares and the semiparametric-efficient
-    SPARCC estimator), and two families of prediction intervals
-    (semiparametric and conformal: split, full, and jackknife+). A separate,
-    self-contained, no-covariate simulation study ships alongside the package
-    under 'sim/' and is run by sourcing 'sim/run.R' (it is not part of the
-    installed package namespace). The name abbreviates PREdiction with
-    Semiparametric Efficiency under a right-Censored COvariate.
+  time-to-event covariate is subject to right-censoring. The package
+  accommodates optional fully observed continuous and discrete covariates
+  and provides maximum-likelihood estimation of working models for the
+  censored covariate and censoring time, complete-case and SPARCC estimators
+  of the outcome-model coefficients, and prediction intervals based on
+  PRESCCO, split conformal prediction, full conformal prediction, and
+  jackknife+. PRESCCO is doubly robust and semiparametrically efficient when
+  both working nuisance models are correctly specified. The repository also
+  includes a self-contained simulation study under 'sim/'. PRESCCO
+  abbreviates PREdiction with Semiparametric efficiency under a
+  right-Censored COvariate.
 License: MIT + file LICENSE
 Encoding: UTF-8
-Depends: R (>= 4.0.0)
+Depends:
+  R (>= 4.0.0)
 Imports:
-    MASS,
-    truncnorm,
-    nleqslv,
-    stats,
-    utils
-Suggests:
-    ggplot2,
-    patchwork,
-    testthat (>= 3.0.0)
-Config/testthat/edition: 3
+  MASS,
+  truncnorm,
+  nleqslv,
+  stats
 Config/roxygen2/version: 8.1.0

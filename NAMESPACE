@@ -12,27 +12,11 @@ export(prediction_coverage_rate)
 export(r1)
 export(r2)
 export(split_conformal_prediction_interval)
-importFrom(MASS,ginv)
-importFrom(nleqslv,nleqslv)
 importFrom(stats,
   IQR,
   approx,
   dnorm,
-  lm.fit,
   optim,
-  optimize,
   pnorm,
-  qnorm,
-  quantile,
-  rnorm,
-  sd,
-  setNames,
-  var
+  sd
 )
-importFrom(truncnorm,
-  dtruncnorm,
-  ptruncnorm,
-  qtruncnorm,
-  rtruncnorm
-)
-importFrom(utils,write.csv)

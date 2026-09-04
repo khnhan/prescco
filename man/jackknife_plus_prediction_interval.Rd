@@ -2,83 +2,98 @@
 % Please edit documentation in R/predict_conformal.R
 \name{jackknife_plus_prediction_interval}
 \alias{jackknife_plus_prediction_interval}
-\title{Jackknife+ prediction coverage}
+\title{Jackknife+ prediction interval}
 \usage{
 jackknife_plus_prediction_interval(
-  alpha,
   y_data,
   w_data,
   delta_data,
   z_c_data = NULL,
   z_d_data = NULL,
+  alpha,
+  alpha1,
+  tau1,
+  alpha1_star_r,
+  tau1_r,
   test_y_data,
   test_w_data,
   test_delta_data,
   test_z_c_data = NULL,
   test_z_d_data = NULL,
-  alpha1,
-  tau1,
-  alpha1_star_r,
-  tau1_r,
   w_min,
   w_max
 )
 }
 \arguments{
-\item{alpha}{Miscoverage level.}
-
-\item{y_data, w_data, delta_data}{Training outcome, time, indicator.}
+\item{y_data, w_data, delta_data}{Training outcome, observed time, and event
+indicator.}
 
 \item{z_c_data, z_d_data}{Optional training covariates.}
 
-\item{test_y_data, test_w_data, test_delta_data}{Test outcome, time, indicator.}
+\item{alpha}{Miscoverage level.}
+
+\item{alpha1, tau1}{Coefficients and standard deviation for the working model
+for \code{X | Z}.}
+
+\item{alpha1_star_r, tau1_r}{Coefficients and SD for \code{r1*}.}
+
+\item{test_y_data, test_w_data, test_delta_data}{Test outcome, observed time,
+and event indicator.}
 
 \item{test_z_c_data, test_z_d_data}{Optional test covariates.}
-
-\item{alpha1, tau1}{eta1 mean coefficients and SD.}
-
-\item{alpha1_star_r, tau1_r}{Residual center coefficients and SD.}
 
 \item{w_min, w_max}{Truncation bounds.}
 }
 \value{
-A list with \code{method}, \code{alpha}, \code{residual},
-  \code{zeta} (half-lengths averaged over the test set), and
-  \code{coverage_rate}, plus \code{n_train} and \code{n_test}.
+A list containing half-lengths and empirical coverage rates for
+  \code{r1}, \code{r2}, and \code{r1*}, together with training and test
+  sample sizes.
 }
 \description{
-Builds leave-one-out complete-case fits and forms jackknife+ prediction
-intervals; returns empirical coverage and half-length. Covariate-aware.
+Fits the outcome model after leaving out each training observation and forms
+jackknife+ prediction intervals from the resulting residuals and predictions.
 }
 \examples{
-\donttest{
 set.seed(1)
-n  <- 200
-x  <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
-cc <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
-w  <- pmin(x, cc)
-delta <- as.integer(x <= cc)
-y  <- 3 * x + rnorm(n)          # beta = c(0, 3)
+n <- 40
+x_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
+c_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
+w_vec <- pmin(x_vec, c_vec)
+delta_vec <- as.integer(x_vec <= c_vec)
+y_vec <- 3 * x_vec + rnorm(n)
 
-a1 <- unname(find_alpha1_MLE(w, delta, w_min = -1, w_max = 1))
+alpha1_fit <- unname(find_alpha1_MLE(
+  w_vec, delta_vec, w_min = -1, w_max = 1
+))
 
 set.seed(2)
-xt <- truncnorm::rtruncnorm(20, a = -1, b = 1, mean = 0, sd = 1)
-ct <- truncnorm::rtruncnorm(20, a = -1, b = 1, mean = 1, sd = 1)
+n_test <- 5
+x_test_vec <- truncnorm::rtruncnorm(
+  n_test, a = -1, b = 1, mean = 0, sd = 1
+)
+c_test_vec <- truncnorm::rtruncnorm(
+  n_test, a = -1, b = 1, mean = 1, sd = 1
+)
+y_test_vec <- 3 * x_test_vec + rnorm(n_test)
+w_test_vec <- pmin(x_test_vec, c_test_vec)
+delta_test_vec <- as.integer(x_test_vec <= c_test_vec)
 
-# Same arguments as full_conformal_prediction_interval(); builds the
-# interval from leave-one-out fits instead of refitting per test point.
 fit <- jackknife_plus_prediction_interval(
+  y_data = y_vec,
+  w_data = w_vec,
+  delta_data = delta_vec,
   alpha = 0.1,
-  y, w, delta,
-  test_y_data = 3 * xt + rnorm(20),
-  test_w_data = pmin(xt, ct),
-  test_delta_data = as.integer(xt <= ct),
-  alpha1 = a1[1], tau1 = a1[2],
-  alpha1_star_r = a1[1], tau1_r = a1[2],
-  w_min = -1, w_max = 1
+  alpha1 = alpha1_fit[1],
+  tau1 = alpha1_fit[2],
+  alpha1_star_r = alpha1_fit[1],
+  tau1_r = alpha1_fit[2],
+  test_y_data = y_test_vec,
+  test_w_data = w_test_vec,
+  test_delta_data = delta_test_vec,
+  w_min = -1,
+  w_max = 1
 )
 fit$zeta
 fit$coverage_rate
-}
+
 }

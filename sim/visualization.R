@@ -1,250 +1,602 @@
 # =============================================================================
-#  Visualization / post-processing for prescco
-#  ---------------------------------------------------------------------------
-#  Aggregates the per-method .Rdata outputs (half-length zeta_sol and
-#  coverage rate pred_cvg) into:
-#    1. a summary table (mean / bias / empirical SD of zeta, mean / SD of the
-#       empirical coverage rate), written to CSV, and
-#    2. the combined "transposed" boxplot figure per censoring level: a left
-#       column of three stacked half-length panels (r1, r2, r1*) and a right
-#       panel of empirical coverage rates for all method x residual combinations.
+# Visualization / post-processing for PRESCCO
 #
-#  Inference/variance summaries (estimated SD, zeta coverage rate) from the original
-#  script are omitted, matching the rest of the package.
+# Run from the package root:
 #
-#  Requires ggplot2 and patchwork. The six methods are, in
-#  order: PRESCCO (eta1,eta2) / (eta1*,eta2) / (eta1,eta2*), split
-#  conformal, full conformal, jackknife+.
+#   Rscript sim/visualization.R
+#
+# Input:
+#   sim/Rdata_files/
+#
+# Output:
+#   sim/results/
 # =============================================================================
 
-# Fixed method order and display labels shared by table and plots.
-.method_keys   <- c("true", "mis1", "mis2", "scp", "fcp", "jackknife")
-.residual_keys <- c("r1", "r2", "r1star")
+library(ggplot2)
+library(patchwork)
 
-# Plain-text method labels (used in the CSV / non-expression contexts).
-.method_labels_plain <- c(
-  true = "(eta1,eta2)", mis1 = "(eta1*,eta2)", mis2 = "(eta1,eta2*)",
-  scp = "Split CP", fcp = "Full CP", jackknife = "Jackknife+")
+RDATA_DIR <- "sim/Rdata_files"
+RESULTS_DIR <- "sim/results"
 
-# ---- Filename helpers --------------------------------------------------------
-# Resolve the on-disk file names produced by the earlier stages.
+dir.create(RESULTS_DIR, showWarnings = FALSE, recursive = TRUE)
 
-.zeta_file <- function(r_char, method, censor, alpha = 0.1) {
-  rlab  <- if (r_char == "r1star") "r1" else r_char
-  infix <- if (r_char == "r1star") "_r1star" else ""
-  switch(method,
-    true      = paste0("zeta_param12_", rlab, "_", alpha, "_", censor, infix, ".Rdata"),
-    mis1      = paste0("zeta_param12_", rlab, "_", alpha, "_", censor, infix, "_mis1.Rdata"),
-    mis2      = paste0("zeta_param12_", rlab, "_", alpha, "_", censor, infix, "_mis2.Rdata"),
-    scp       = paste0("zeta_param12_", rlab, "_", alpha, "_", censor, infix, "_cp.Rdata"),
-    fcp       = paste0("zeta_", rlab, "_", alpha, "_", censor, infix, "_fcp.Rdata"),
-    jackknife = paste0("zeta_", rlab, "_", alpha, "_", censor, infix, "_jackknife.Rdata"))
+alpha <- 0.1
+
+cens_rate_list <- c(
+  "low",
+  "lowmid",
+  "mid",
+  "highmid",
+  "high"
+)
+
+r_char_list <- c(
+  "r1",
+  "r2",
+  "r1star"
+)
+
+method_list <- c(
+  "true",
+  "mis1",
+  "mis2",
+  "scp",
+  "fcp",
+  "jackknife"
+)
+
+
+# =============================================================================
+# True half-lengths
+# =============================================================================
+
+zeta_true_mat <- NULL
+
+true_zeta_file <- file.path(
+  RDATA_DIR,
+  "true_zeta.Rdata"
+)
+
+if (file.exists(true_zeta_file)) {
+
+  load(true_zeta_file)
+
+  zeta_true_mat <- matrix(
+    apply(true_zeta[, -(1:2)], 1, median),
+    ncol = length(cens_rate_list)
+  )
+
+  rownames(zeta_true_mat) <- r_char_list
+  colnames(zeta_true_mat) <- cens_rate_list
 }
 
-.pred_cvg_file <- function(r_char, method, censor, alpha = 0.1) {
-  rlab  <- if (r_char == "r1star") "r1" else r_char
-  infix <- if (r_char == "r1star") "_r1star" else ""
-  switch(method,
-    true      = paste0("pred_cvg_", rlab, "_", alpha, "_", censor, infix, ".Rdata"),
-    mis1      = paste0("pred_cvg_", rlab, "_", alpha, "_", censor, infix, "_mis1.Rdata"),
-    mis2      = paste0("pred_cvg_", rlab, "_", alpha, "_", censor, infix, "_mis2.Rdata"),
-    scp       = paste0("pred_cvg_", rlab, "_", alpha, "_", censor, infix, "_cp.Rdata"),
-    fcp       = paste0("pred_cvg_", rlab, "_", alpha, "_", censor, infix, "_fcp.Rdata"),
-    jackknife = paste0("pred_cvg_", rlab, "_", alpha, "_", censor, infix, "_jackknife.Rdata"))
-}
 
-.load_var <- function(path, want) {
-  if (!file.exists(path)) stop("missing input file: ", path)
-  env <- new.env(); load(path, envir = env)
-  if (!exists(want, envir = env)) stop("`", want, "` not found in ", path)
-  get(want, envir = env)
-}
+# =============================================================================
+# Read all simulation results
+# =============================================================================
 
-#' Collect half-length and coverage rate draws for one censoring level
-#'
-#' Reads every method x residual pair for one censoring level and returns tidy
-#' long data frames of the half-length and coverage rate draws.
-#'
-#' @param censor Censoring level tag.
-#' @param in_dir Directory holding the \code{.Rdata} inputs.
-#' @param alpha Miscoverage level used in the filenames.
-#' @return A list with \code{zeta} and \code{cvg} data frames, each with columns
-#'   \code{r_char}, \code{method}, and the drawn value.
-#' @export
-collect_sim_draws <- function(censor, in_dir = ".", alpha = 0.1) {
-  zeta <- list(); cvg <- list()
-  for (r_char in .residual_keys) {
-    for (mth in .method_keys) {
-      zs <- .load_var(file.path(in_dir, .zeta_file(r_char, mth, censor, alpha)), "zeta_sol")
-      pc <- .load_var(file.path(in_dir, .pred_cvg_file(r_char, mth, censor, alpha)), "pred_cvg")
-      zeta[[length(zeta) + 1]] <- data.frame(r_char = r_char, method = mth, zeta_sol = zs)
-      cvg[[length(cvg) + 1]]   <- data.frame(r_char = r_char, method = mth, pred_cvg = pc)
+zeta_all <- NULL
+pred_cvg_all <- NULL
+
+for (censor in cens_rate_list) {
+
+  message("Loading: ", censor)
+
+  for (r_char in r_char_list) {
+
+    rlab <- if (r_char == "r1star") "r1" else r_char
+    infix <- if (r_char == "r1star") "_r1star" else ""
+
+    for (method in method_list) {
+
+      # -----------------------------------------------------------------------
+      # zeta filename
+      # -----------------------------------------------------------------------
+
+      if (method == "true") {
+
+        zeta_file <- paste0(
+          "zeta_param12_",
+          rlab, "_", alpha, "_", censor,
+          infix,
+          ".Rdata"
+        )
+
+      } else if (method == "mis1") {
+
+        zeta_file <- paste0(
+          "zeta_param12_",
+          rlab, "_", alpha, "_", censor,
+          infix,
+          "_mis1.Rdata"
+        )
+
+      } else if (method == "mis2") {
+
+        zeta_file <- paste0(
+          "zeta_param12_",
+          rlab, "_", alpha, "_", censor,
+          infix,
+          "_mis2.Rdata"
+        )
+
+      } else if (method == "scp") {
+
+        zeta_file <- paste0(
+          "zeta_param12_",
+          rlab, "_", alpha, "_", censor,
+          infix,
+          "_cp.Rdata"
+        )
+
+      } else if (method == "fcp") {
+
+        zeta_file <- paste0(
+          "zeta_",
+          rlab, "_", alpha, "_", censor,
+          infix,
+          "_fcp.Rdata"
+        )
+
+      } else if (method == "jackknife") {
+
+        zeta_file <- paste0(
+          "zeta_",
+          rlab, "_", alpha, "_", censor,
+          infix,
+          "_jackknife.Rdata"
+        )
+      }
+
+
+      # -----------------------------------------------------------------------
+      # prediction coverage filename
+      # -----------------------------------------------------------------------
+
+      if (method == "true") {
+
+        pred_file <- paste0(
+          "pred_cvg_",
+          rlab, "_", alpha, "_", censor,
+          infix,
+          ".Rdata"
+        )
+
+      } else if (method == "mis1") {
+
+        pred_file <- paste0(
+          "pred_cvg_",
+          rlab, "_", alpha, "_", censor,
+          infix,
+          "_mis1.Rdata"
+        )
+
+      } else if (method == "mis2") {
+
+        pred_file <- paste0(
+          "pred_cvg_",
+          rlab, "_", alpha, "_", censor,
+          infix,
+          "_mis2.Rdata"
+        )
+
+      } else if (method == "scp") {
+
+        pred_file <- paste0(
+          "pred_cvg_",
+          rlab, "_", alpha, "_", censor,
+          infix,
+          "_cp.Rdata"
+        )
+
+      } else if (method == "fcp") {
+
+        pred_file <- paste0(
+          "pred_cvg_",
+          rlab, "_", alpha, "_", censor,
+          infix,
+          "_fcp.Rdata"
+        )
+
+      } else if (method == "jackknife") {
+
+        pred_file <- paste0(
+          "pred_cvg_",
+          rlab, "_", alpha, "_", censor,
+          infix,
+          "_jackknife.Rdata"
+        )
+      }
+
+
+      # -----------------------------------------------------------------------
+      # Load zeta_sol
+      # -----------------------------------------------------------------------
+
+      zeta_path <- file.path(
+        RDATA_DIR,
+        zeta_file
+      )
+
+      if (!file.exists(zeta_path)) {
+        stop("Missing file: ", zeta_path)
+      }
+
+      load(zeta_path)
+
+      zeta_all <- rbind(
+        zeta_all,
+        data.frame(
+          censoring = censor,
+          r_char = r_char,
+          method = method,
+          zeta_sol = zeta_sol
+        )
+      )
+
+
+      # -----------------------------------------------------------------------
+      # Load pred_cvg
+      # -----------------------------------------------------------------------
+
+      pred_path <- file.path(
+        RDATA_DIR,
+        pred_file
+      )
+
+      if (!file.exists(pred_path)) {
+        stop("Missing file: ", pred_path)
+      }
+
+      load(pred_path)
+
+      pred_cvg_all <- rbind(
+        pred_cvg_all,
+        data.frame(
+          censoring = censor,
+          r_char = r_char,
+          method = method,
+          pred_cvg = pred_cvg
+        )
+      )
     }
   }
-  list(zeta = do.call(rbind, zeta), cvg = do.call(rbind, cvg))
 }
 
-#' Summarize one censoring level into a table of means and SDs
-#'
-#' @param draws Output of \code{collect_sim_draws}.
-#' @param censor Censoring level tag (added as a column).
-#' @param zeta_true Optional named vector of true half-lengths by residual
-#'   (\code{r1}, \code{r2}, \code{r1star}); when supplied, a \code{bias} column
-#'   is added.
-#' @return A data frame with one row per residual x method.
-#' @export
-summarize_sim_level <- function(draws, censor, zeta_true = NULL) {
-  rows <- list()
-  for (r_char in .residual_keys) {
-    for (mth in .method_keys) {
-      z <- draws$zeta$zeta_sol[draws$zeta$r_char == r_char & draws$zeta$method == mth]
-      p <- draws$cvg$pred_cvg[draws$cvg$r_char == r_char & draws$cvg$method == mth]
-      zmean <- mean(z)
-      row <- data.frame(
-        censoring     = censor,
-        r_char        = r_char,
-        method        = mth,
-        zeta_mean     = zmean,
-        emp_sd        = sd(z),
-        mean_pred_cvg = mean(p),
-        sd_pred_cvg   = sd(p),
-        stringsAsFactors = FALSE)
-      if (!is.null(zeta_true)) row$bias <- zmean - zeta_true[[r_char]]
-      rows[[length(rows) + 1]] <- row
+
+# =============================================================================
+# Summary table
+# =============================================================================
+
+result <- NULL
+
+for (censor in cens_rate_list) {
+
+  for (r_char in r_char_list) {
+
+    for (method in method_list) {
+
+      z <- zeta_all$zeta_sol[
+        zeta_all$censoring == censor &
+          zeta_all$r_char == r_char &
+          zeta_all$method == method
+      ]
+
+      p <- pred_cvg_all$pred_cvg[
+        pred_cvg_all$censoring == censor &
+          pred_cvg_all$r_char == r_char &
+          pred_cvg_all$method == method
+      ]
+
+      zeta_mean <- mean(z)
+
+      if (!is.null(zeta_true_mat)) {
+
+        zeta_true <- zeta_true_mat[
+          r_char,
+          censor
+        ]
+
+        bias <- zeta_mean - zeta_true
+
+      } else {
+
+        bias <- NA
+      }
+
+      result <- rbind(
+        result,
+        data.frame(
+          censoring = censor,
+          r_char = r_char,
+          method = method,
+          zeta_mean = zeta_mean,
+          bias = bias,
+          emp_sd = sd(z),
+          mean_pred_cvg = mean(p),
+          sd_pred_cvg = sd(p)
+        )
+      )
     }
   }
-  do.call(rbind, rows)
 }
 
-# ---- Combined transposed plot ------------------------------------------------
 
-# Expression labels for the six methods (used on plot axes).
-.method_labels_expr <- function() {
-  expression(
-    "(" * eta[1] * "," * eta[2] * " )",
-    "(" * eta[1] * "*" * "," * eta[2] * ")",
-    "(" * eta[1] * "," * eta[2]^"\u2605" * ")",
-    "Split CP", "Full CP", "Jackknife+")
-}
+result[, c(
+  "zeta_mean",
+  "bias",
+  "emp_sd",
+  "mean_pred_cvg",
+  "sd_pred_cvg"
+)] <- round(
+  result[, c(
+    "zeta_mean",
+    "bias",
+    "emp_sd",
+    "mean_pred_cvg",
+    "sd_pred_cvg"
+  )],
+  3
+)
 
-#' Build the combined transposed boxplot for one censoring level
-#'
-#' Left column: three stacked half-length panels (r1, r2, r1*). Right column:
-#' one tall panel of empirical coverage rates for all 18 method x residual
-#' combinations (with small gaps between residual blocks) and a vertical
-#' reference line at \code{1 - alpha}.
-#'
-#' @param draws Output of \code{collect_sim_draws}.
-#' @param alpha Miscoverage level (reference line at \code{1 - alpha}).
-#' @param fills Named fill colors for \code{r1}, \code{r2}, \code{r1star}.
-#' @return A patchwork object combining the panels.
-#' @export
-plot_combined_transposed <- function(draws, alpha = 0.1,
-                                     fills = c(r1 = "magenta", r2 = "cyan",
-                                               r1star = "purple")) {
-  if (!requireNamespace("ggplot2", quietly = TRUE) ||
-      !requireNamespace("patchwork", quietly = TRUE)) {
-    stop("plot_combined_transposed requires the 'ggplot2' and 'patchwork' packages.")
-  }
-  labels <- .method_labels_expr()
-  rev_methods <- rev(.method_keys)
+write.csv(
+  result,
+  file = file.path(
+    RESULTS_DIR,
+    "simulation_result.csv"
+  ),
+  row.names = FALSE
+)
 
-  # --- left: three stacked half-length panels ---
-  half_panel <- function(rc, fill, xlab = NULL) {
-    d <- draws$zeta[draws$zeta$r_char == rc, ]
-    ggplot2::ggplot(d, ggplot2::aes(y = ggplot2::.data$method, x = ggplot2::.data$zeta_sol)) +
-      ggplot2::geom_boxplot(fill = fill, linewidth = 0.5) +
-      ggplot2::scale_y_discrete(limits = rev_methods, labels = rev(labels)) +
-      ggplot2::labs(x = xlab, y = NULL) +
-      ggplot2::theme_minimal(base_size = 12)
-  }
-  p1 <- half_panel("r1",     fills[["r1"]])
-  p2 <- half_panel("r2",     fills[["r2"]])
-  p3 <- half_panel("r1star", fills[["r1star"]],
-                   xlab = "estimated half-length")
-  left_panel <- patchwork::wrap_plots(p1, p2, p3, ncol = 1)
 
-  # --- right: tall coverage rate panel with gaps between residual blocks ---
+# =============================================================================
+# Figures
+# =============================================================================
+
+method_order <- c(
+  "true",
+  "mis1",
+  "mis2",
+  "scp",
+  "fcp",
+  "jackknife"
+)
+
+method_labels <- expression(
+  "PRESCCO (" * eta[1] * "," * eta[2] * ")",
+  "PRESCCO (" * eta[1] * "*" * "," * eta[2] * ")",
+  "PRESCCO (" * eta[1] * "," * eta[2]^"\u2605" * ")",
+  "Split CP",
+  "Full CP",
+  "Jackknife+"
+)
+
+
+for (censor in cens_rate_list) {
+
+  message("Plotting: ", censor)
+
+
+  # ===========================================================================
+  # Half-length: r1
+  # ===========================================================================
+
+  d1 <- zeta_all[
+    zeta_all$censoring == censor &
+      zeta_all$r_char == "r1",
+  ]
+
+  p1 <- ggplot(
+    d1,
+    aes(
+      y = method,
+      x = zeta_sol
+    )
+  ) +
+    geom_boxplot(
+      fill = "magenta",
+      linewidth = 0.5
+    ) +
+    scale_y_discrete(
+      limits = rev(method_order),
+      labels = rev(method_labels)
+    ) +
+    labs(
+      x = NULL,
+      y = NULL
+    ) +
+    theme_minimal(
+      base_size = 12
+    )
+
+
+  # ===========================================================================
+  # Half-length: r2
+  # ===========================================================================
+
+  d2 <- zeta_all[
+    zeta_all$censoring == censor &
+      zeta_all$r_char == "r2",
+  ]
+
+  p2 <- ggplot(
+    d2,
+    aes(
+      y = method,
+      x = zeta_sol
+    )
+  ) +
+    geom_boxplot(
+      fill = "cyan",
+      linewidth = 0.5
+    ) +
+    scale_y_discrete(
+      limits = rev(method_order),
+      labels = rev(method_labels)
+    ) +
+    labs(
+      x = NULL,
+      y = NULL
+    ) +
+    theme_minimal(
+      base_size = 12
+    )
+
+
+  # ===========================================================================
+  # Half-length: r1*
+  # ===========================================================================
+
+  d3 <- zeta_all[
+    zeta_all$censoring == censor &
+      zeta_all$r_char == "r1star",
+  ]
+
+  p3 <- ggplot(
+    d3,
+    aes(
+      y = method,
+      x = zeta_sol
+    )
+  ) +
+    geom_boxplot(
+      fill = "purple",
+      linewidth = 0.5
+    ) +
+    scale_y_discrete(
+      limits = rev(method_order),
+      labels = rev(method_labels)
+    ) +
+    labs(
+      x = "estimated half-length",
+      y = NULL
+    ) +
+    theme_minimal(
+      base_size = 12
+    )
+
+
+  left_panel <- p1 / p2 / p3
+
+
+  # ===========================================================================
+  # Coverage panel
+  # ===========================================================================
+
+  dcvg <- pred_cvg_all[
+    pred_cvg_all$censoring == censor,
+  ]
+
   levels_vert <- c(
-    paste0(rev_methods, "_r1star"), "gap1",
-    paste0(rev_methods, "_r2"),     "gap2",
-    paste0(rev_methods, "_r1"))
-  d456 <- draws$cvg
-  d456$cat <- factor(paste0(d456$method, "_", d456$r_char), levels = levels_vert)
-  d456$r_char <- factor(d456$r_char, levels = .residual_keys)
+    paste0(
+      rev(method_order),
+      "_r1star"
+    ),
+    "gap1",
+    paste0(
+      rev(method_order),
+      "_r2"
+    ),
+    "gap2",
+    paste0(
+      rev(method_order),
+      "_r1"
+    )
+  )
 
-  right_panel <- ggplot2::ggplot(
-      d456, ggplot2::aes(x = ggplot2::.data$pred_cvg, y = ggplot2::.data$cat, fill = ggplot2::.data$r_char)) +
-    ggplot2::geom_boxplot(linewidth = 0.5) +
-    ggplot2::geom_vline(xintercept = 1 - alpha, color = "red") +
-    ggplot2::scale_fill_manual(
-      values = fills, breaks = .residual_keys,
-      labels = c(expression(r[1]), expression(r[2]), expression(r[1] * "*")),
-      name = NULL) +
-    ggplot2::scale_y_discrete(
+  dcvg$cat <- paste0(
+    dcvg$method,
+    "_",
+    dcvg$r_char
+  )
+
+  dcvg$cat <- factor(
+    dcvg$cat,
+    levels = levels_vert
+  )
+
+  dcvg$r_char <- factor(
+    dcvg$r_char,
+    levels = c(
+      "r1",
+      "r2",
+      "r1star"
+    )
+  )
+
+  right_panel <- ggplot(
+    dcvg,
+    aes(
+      x = pred_cvg,
+      y = cat,
+      fill = r_char
+    )
+  ) +
+    geom_boxplot(
+      linewidth = 0.5
+    ) +
+    geom_vline(
+      xintercept = 1 - alpha,
+      color = "red"
+    ) +
+    scale_fill_manual(
+      values = c(
+        r1 = "magenta",
+        r2 = "cyan",
+        r1star = "purple"
+      ),
+      breaks = c(
+        "r1",
+        "r2",
+        "r1star"
+      ),
+      labels = c(
+        expression(r[1]),
+        expression(r[2]),
+        expression(r[1] * "*")
+      ),
+      name = NULL
+    ) +
+    scale_y_discrete(
       breaks = levels_vert,
-      labels = c(rev(labels), "", rev(labels), "", rev(labels)),
-      drop = FALSE) +
-    ggplot2::labs(x = "coverage rate", y = NULL) +
-    ggplot2::theme_minimal(base_size = 12) +
-    ggplot2::theme(legend.position = "right")
+      labels = c(
+        rev(method_labels),
+        "",
+        rev(method_labels),
+        "",
+        rev(method_labels)
+      ),
+      drop = FALSE
+    ) +
+    labs(
+      x = "coverage rate",
+      y = NULL
+    ) +
+    theme_minimal(
+      base_size = 12
+    ) +
+    theme(
+      legend.position = "right"
+    )
 
-  patchwork::wrap_plots(left_panel, right_panel, ncol = 2)
-}
 
-# ---- Top-level driver --------------------------------------------------------
+  # ===========================================================================
+  # Combined figure
+  # ===========================================================================
 
-#' Reproduce the simulation summary table and combined figures
-#'
-#' Iterates over all censoring levels, writes the combined transposed boxplot
-#' \code{boxplot_combined_transposed_<censor>.png} for each, and writes the
-#' rounded summary table to CSV.
-#'
-#' @param in_dir Directory holding the \code{.Rdata} inputs.
-#' @param out_dir Directory for the figures and CSV.
-#' @param alpha Miscoverage level.
-#' @param zeta_true_file Optional path to a \code{true_zeta.Rdata} (matrix
-#'   \code{true_zeta} with residuals in rows and censoring levels in columns,
-#'   after two leading id columns) for the \code{bias} column; if \code{NULL},
-#'   the bias column is omitted.
-#' @param width,height Figure dimensions in inches.
-#' @return Invisibly, the combined summary table (also written to CSV).
-#' @export
-run_visualization <- function(in_dir = ".", out_dir = ".", alpha = 0.1,
-                              zeta_true_file = NULL, width = 8, height = 6) {
-  if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+  final_plot <- left_panel | right_panel
 
-  zeta_true_mat <- NULL
-  if (!is.null(zeta_true_file) && file.exists(zeta_true_file)) {
-    true_zeta <- .load_var(zeta_true_file, "true_zeta")
-    zeta_true_mat <- matrix(apply(true_zeta[, -(1:2)], 1, median),
-                            ncol = length(.censor_alpha2))
-    rownames(zeta_true_mat) <- .residual_keys
-    colnames(zeta_true_mat) <- names(.censor_alpha2)
-  }
-
-  result <- list()
-  levels <- names(.censor_alpha2)
-  for (i in seq_along(levels)) {
-    censor <- levels[[i]]
-    message(sprintf("[viz %d/%d] %s", i, length(levels), censor))
-    draws <- collect_sim_draws(censor, in_dir = in_dir, alpha = alpha)
-
-    zt <- if (!is.null(zeta_true_mat))
-      stats::setNames(zeta_true_mat[, censor], .residual_keys) else NULL
-    result[[length(result) + 1]] <- summarize_sim_level(draws, censor, zeta_true = zt)
-
-    p <- plot_combined_transposed(draws, alpha = alpha)
-    ggplot2::ggsave(
-      filename = file.path(out_dir,
-                           paste0("boxplot_combined_transposed_", censor, ".png")),
-      plot = p, width = width, height = height)
-  }
-
-  result <- do.call(rbind, result)
-  num_cols <- vapply(result, is.numeric, logical(1))
-  result[num_cols] <- round(result[num_cols], 3)
-  utils::write.csv(result, file = file.path(out_dir, "simulation_result.csv"),
-                   row.names = FALSE)
-  invisible(result)
+  ggsave(
+    filename = file.path(
+      RESULTS_DIR,
+      paste0(
+        "boxplot_",
+        censor,
+        ".pdf"
+      )
+    ),
+    plot = final_plot,
+    width = 8,
+    height = 6
+  )
 }

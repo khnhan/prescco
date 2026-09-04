@@ -4,45 +4,10 @@
 \name{prescco-package}
 \alias{prescco}
 \alias{prescco-package}
-\title{prescco: Semiparametric Prediction Intervals Under a Censored Covariate}
+\title{prescco: Prediction Intervals Under a Right-Censored Covariate}
 \description{
-Constructs prediction intervals for an outcome \code{Y} when a
-time-to-event covariate \code{X} is subject to right-censoring, so that only
-\code{W = min(X, C)} and \code{delta = I(X <= C)} are observed. Fully
-observed covariates \code{Z} (continuous and discrete) are optional.
+Constructs prediction intervals for an outcome when a time-to-event covariate is subject to right-censoring. The package accommodates optional fully observed continuous and discrete covariates and provides maximum-likelihood estimation of working models for the censored covariate and censoring time, complete-case and SPARCC estimators of the outcome-model coefficients, and prediction intervals based on PRESCCO, split conformal prediction, full conformal prediction, and jackknife+. PRESCCO is doubly robust and semiparametrically efficient when both working nuisance models are correctly specified. The repository also includes a self-contained simulation study under 'sim/'. PRESCCO abbreviates PREdiction with Semiparametric efficiency under a right-Censored COvariate.
 }
-\details{
-The package provides:
-\itemize{
-  \item maximum-likelihood estimation of the working \code{X | Z} and
-    \code{C | Z} models (\code{\link{find_alpha1_MLE}},
-    \code{\link{find_alpha2_MLE}});
-  \item two coefficient estimators: complete-case least squares
-    (\code{\link{find_beta_cc}}) and the semiparametrically efficient SPARCC
-    estimator (\code{\link{find_beta_sparcc}});
-  \item two families of prediction intervals: PRESCCO
-    (\code{\link{PRESCCO_prediction_interval}}) and conformal --- split, full, and
-    jackknife+ (\code{\link{split_conformal_prediction_interval}},
-    \code{\link{full_conformal_prediction_interval}}, \code{\link{jackknife_plus_prediction_interval}}).
-}
-
-A separate, self-contained, no-covariate simulation study reproducing the
-paper's simulation studies ships under \code{sim/}. It is run by sourcing
-\code{sim/run.R} and is not part of the installed namespace.
-}
-\section{Name}{
-
-\strong{PRE}diction with \strong{S}emiparametric Efficiency under a
-right-\strong{C}ensored \strong{CO}variate.
-}
-
-\section{Imports}{
-
-The tags below are the single source of truth for the package NAMESPACE.
-Keep them in sync when adding dependencies, then run
-\code{devtools::document()}.
-}
-
 \author{
 \strong{Maintainer}: Kihyun Han \email{kqh5716@psu.edu}
 

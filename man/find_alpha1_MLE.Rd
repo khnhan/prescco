@@ -2,7 +2,7 @@
 % Please edit documentation in R/nuisance.R
 \name{find_alpha1_MLE}
 \alias{find_alpha1_MLE}
-\title{Maximum-likelihood fit of the eta1 model X | Z}
+\title{Maximum-likelihood fit of the working model for X | Z}
 \usage{
 find_alpha1_MLE(
   w_data,
@@ -14,31 +14,34 @@ find_alpha1_MLE(
 )
 }
 \arguments{
-\item{w_data, delta_data}{Observed times and event indicators (length n).}
+\item{w_data, delta_data}{Observed times and event indicators.}
 
-\item{z_c_data}{Optional continuous covariates (length-n vector or n-by-p matrix).}
+\item{z_c_data}{Optional continuous covariates, supplied as a vector or
+matrix.}
 
-\item{z_d_data}{Optional discrete covariates (length-n vector or n-by-q matrix).}
+\item{z_d_data}{Optional discrete covariates, supplied as a vector or matrix.}
 
-\item{w_min, w_max}{Truncation bounds for X.}
+\item{w_min, w_max}{Truncation bounds for \code{X}.}
 }
 \value{
-A named numeric vector: the coefficient estimates alpha1_hat
-  (intercept, then z_c then z_d) followed by tau1_hat.
+A named numeric vector containing the estimated mean-model
+  coefficients followed by the estimated standard deviation.
 }
 \description{
-Maximum-likelihood fit of the eta1 model X | Z
+Fits a truncated-normal working model for the right-censored covariate
+\code{X} given optional fully observed covariates \code{Z}.
 }
 \examples{
 set.seed(1)
-n  <- 200
-x  <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
-cc <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
-w  <- pmin(x, cc)
-delta <- as.integer(x <= cc)
-y  <- 3 * x + rnorm(n)          # beta = c(0, 3)
+n <- 200
+x_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
+c_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
+w_vec <- pmin(x_vec, c_vec)
+delta_vec <- as.integer(x_vec <= c_vec)
 
-# Recovers the mean and SD of X from censored data; here the truth
-# is mean 0, sd 1.
-find_alpha1_MLE(w, delta, w_min = -1, w_max = 1)
+find_alpha1_MLE(
+  w_vec, delta_vec,
+  w_min = -1, w_max = 1
+)
+
 }

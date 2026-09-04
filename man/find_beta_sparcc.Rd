@@ -22,48 +22,57 @@ find_beta_sparcc(
 )
 }
 \arguments{
-\item{y_data, w_data, delta_data}{Outcome, observed time, event indicator.}
+\item{y_data, w_data, delta_data}{Outcome, observed time, and event indicator.}
 
-\item{z_c_data, z_d_data}{Optional continuous / discrete covariates.}
+\item{z_c_data, z_d_data}{Optional continuous and discrete covariates.}
 
-\item{alpha1_star, alpha2_star}{Coefficient vectors for the eta1 / eta2 means
-(typically from find_alpha1_MLE / find_alpha2_MLE).}
+\item{alpha1_star, alpha2_star}{Coefficient vectors for the working
+\code{X | Z} and \code{C | Z} models, typically obtained from
+\code{\link{find_alpha1_MLE}} and \code{\link{find_alpha2_MLE}}.}
 
-\item{tau1, tau2}{Standard deviations of X and C.}
+\item{tau1, tau2}{Standard deviations of \code{X} and \code{C}.}
 
 \item{tt, m}{Integration grid size and covariate-grid resolution.}
 
-\item{w_min, w_max}{Truncation bounds for X and C.}
+\item{w_min, w_max}{Truncation bounds for \code{X} and \code{C}.}
 
 \item{verbose}{If \code{TRUE}, report the \code{nleqslv} convergence
 message. Defaults to \code{FALSE}.}
 }
 \value{
-A list with `beta_hat` and `sigma_hat`.
+A list containing the SPARCC estimates \code{beta_hat} and
+  \code{sigma_hat}, their starting values, the combined parameter vectors,
+  and the \code{nleqslv} result.
 }
 \description{
-Solves the efficient estimating equation for beta under the working nuisance
-models for X | Z and C | Z. Covariate-aware via the phi_xz basis.
+Solves the efficient estimating equation for beta under working nuisance
+models for \code{X | Z} and \code{C | Z}.
 }
 \examples{
-\donttest{
 set.seed(1)
-n  <- 200
-x  <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
-cc <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
-w  <- pmin(x, cc)
-delta <- as.integer(x <= cc)
-y  <- 3 * x + rnorm(n)          # beta = c(0, 3)
+n <- 200
+x_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
+c_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
+w_vec <- pmin(x_vec, c_vec)
+delta_vec <- as.integer(x_vec <= c_vec)
+y_vec <- 3 * x_vec + rnorm(n)
 
-# Fit the two working models first
-a1 <- unname(find_alpha1_MLE(w, delta, w_min = -1, w_max = 1))
-a2 <- unname(find_alpha2_MLE(w, delta, w_min = -1, w_max = 1))
+# Fit the two working nuisance models.
+a1 <- unname(find_alpha1_MLE(
+  w_vec, delta_vec, w_min = -1, w_max = 1
+))
+a2 <- unname(find_alpha2_MLE(
+  w_vec, delta_vec, w_min = -1, w_max = 1
+))
 
-fit <- find_beta_sparcc(y, w, delta, NULL, NULL,
-                        alpha1_star = a1[1], alpha2_star = a2[1],
-                        tau1 = a1[2], tau2 = a2[2],
-                        w_min = -1, w_max = 1)
-fit$beta_hat     # uses every observation, unlike find_beta_cc
-fit$sigma_hat
-}
+fit_sparcc <- find_beta_sparcc(
+  y_vec, w_vec, delta_vec,
+  z_c_data = NULL, z_d_data = NULL,
+  alpha1_star = a1[1], alpha2_star = a2[1],
+  tau1 = a1[2], tau2 = a2[2],
+  w_min = -1, w_max = 1
+)
+fit_sparcc$beta_hat
+fit_sparcc$sigma_hat
+
 }

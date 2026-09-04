@@ -7,27 +7,28 @@
 phi_xz(x, z_c = NULL, z_d = NULL)
 }
 \arguments{
-\item{x}{Numeric event-time covariate value (scalar).}
+\item{x}{Event-time covariate value or numeric vector.}
 
-\item{z_c}{Optional continuous covariate(s): a scalar/vector for one point.}
+\item{z_c}{Optional continuous covariates. For multiple observations, supply
+a vector for one covariate or a matrix with one row per observation.}
 
-\item{z_d}{Optional discrete covariate(s): a scalar/vector for one point.}
+\item{z_d}{Optional discrete covariates, supplied in the same form as
+\code{z_c}.}
 }
 \value{
-The numeric basis vector (1, x, z_c, z_d, x*z_c, x*z_d).
+A numeric basis vector for one observation or a design matrix for
+  multiple observations.
 }
 \description{
-Covariate basis for the outcome model
+Constructs the basis
+\code{(1, X, Z_c, Z_d, X Z_c, X Z_d)} used by the outcome model.
 }
 \examples{
-# No covariates: the basis is (1, x)
 phi_xz(0.5)
-
-# One continuous and one discrete covariate:
-# (1, x, z_c, z_d, x * z_c, x * z_d)
 phi_xz(0.5, z_c = 2, z_d = 1)
 
-# The basis fixes the layout of beta, so a fitted coefficient vector
-# is read in this order.
-length(phi_xz(0.5, z_c = c(2, 3), z_d = 1))
+x_vec <- c(0.2, 0.5, 0.8)
+z_c_vec <- c(1, 2, 3)
+phi_xz(x_vec, z_c = z_c_vec)
+
 }

@@ -2,51 +2,58 @@
 % Please edit documentation in R/predict_helpers.R
 \name{r1}
 \alias{r1}
-\title{Residual r1 = |Y - m1|}
+\title{Residual r1}
 \usage{
 r1(y, w, delta, beta, alpha1_star, tau1, z_c = NULL, z_d = NULL, w_min, w_max)
 }
 \arguments{
-\item{y}{Observed outcome (scalar).}
+\item{y}{Outcome value or numeric vector.}
 
-\item{w, delta}{Observed time and event indicator (scalars).}
+\item{w, delta}{Observed time and event indicator.}
 
-\item{beta}{Outcome coefficient vector matching \code{phi_xz}.}
+\item{beta}{Outcome-model coefficient vector.}
 
-\item{alpha1_star}{Coefficient vector for the eta1 mean mu_X(Z). Supplying a
-deliberately wrong value here is what produces the \code{r1*} residual.}
+\item{alpha1_star}{Coefficient vector for the working model for
+\code{X | Z}.}
 
-\item{tau1}{Standard deviation of X.}
+\item{tau1}{Standard deviation for the working model for \code{X | Z}.}
 
-\item{z_c, z_d}{Optional covariates.}
+\item{z_c, z_d}{Optional continuous and discrete covariates.}
 
-\item{w_min, w_max}{Truncation bounds for X.}
+\item{w_min, w_max}{Truncation bounds for \code{X}.}
 }
 \value{
-The absolute residual |y - m1(...)|.
+A numeric residual or vector of residuals.
 }
 \description{
-Residual r1 = |Y - m1|
+Computes \code{|Y - m1|}. For censored observations, \code{m1} averages
+over the unobserved values of \code{X} under the working model for
+\code{X | Z}. Supplying alternative values of \code{alpha1_star} and
+\code{tau1} gives \code{r1*}.
 }
 \examples{
 set.seed(1)
-n  <- 200
-x  <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
-cc <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
-w  <- pmin(x, cc)
-delta <- as.integer(x <= cc)
-y  <- 3 * x + rnorm(n)          # beta = c(0, 3)
+n <- 200
+x_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
+c_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
+w_vec <- pmin(x_vec, c_vec)
+delta_vec <- as.integer(x_vec <= c_vec)
+y_vec <- 3 * x_vec + rnorm(n)
 
 beta <- c(0, 3)
 
-# Uncensored observation: r1 reduces to |y - m0(w)|
-r1(y[delta == 1][1], w[delta == 1][1], 1L, beta,
-   alpha1_star = 0, tau1 = 1, w_min = -1, w_max = 1)
+res_r1 <- r1(
+  y_vec, w_vec, delta_vec, beta,
+  alpha1_star = 0, tau1 = 1,
+  w_min = -1, w_max = 1
+)
+head(res_r1)
 
-# Censored observation: X is integrated over the range above w
-i <- which(delta == 0)[1]
-r1(y[i], w[i], 0L, beta, alpha1_star = 0, tau1 = 1, w_min = -1, w_max = 1)
+res_r1star <- r1(
+  y_vec, w_vec, delta_vec, beta,
+  alpha1_star = -2, tau1 = 1,
+  w_min = -1, w_max = 1
+)
+head(res_r1star)
 
-# r1* is the same call under a working model for X | Z that may be wrong
-r1(y[i], w[i], 0L, beta, alpha1_star = -2, tau1 = 1, w_min = -1, w_max = 1)
 }

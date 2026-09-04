@@ -2,7 +2,7 @@
 % Please edit documentation in R/predict_PRESCCO.R
 \name{PRESCCO_prediction_interval}
 \alias{PRESCCO_prediction_interval}
-\title{PRESCCO half-length, end to end}
+\title{PRESCCO prediction interval}
 \usage{
 PRESCCO_prediction_interval(
   y_data,
@@ -10,23 +10,23 @@ PRESCCO_prediction_interval(
   delta_data,
   z_c_data = NULL,
   z_d_data = NULL,
-  residual = r1,
-  residual_name = NULL,
   alpha = 0.1,
-  x_a = NULL,
   alpha1_star = NULL,
   tau1 = NULL,
+  alpha1_star_r = NULL,
+  tau1_r = NULL,
   alpha2_star = NULL,
   tau2 = NULL,
   beta = NULL,
   sigma = NULL,
-  alpha1_star_r = NULL,
-  tau1_r = NULL,
   test_y_data = NULL,
   test_w_data = NULL,
   test_delta_data = NULL,
   test_z_c_data = NULL,
   test_z_d_data = NULL,
+  residual = r1,
+  residual_name = NULL,
+  x_a = NULL,
   w_min = -1,
   w_max = 1,
   tt = 20,
@@ -36,94 +36,96 @@ PRESCCO_prediction_interval(
 )
 }
 \arguments{
-\item{y_data, w_data, delta_data}{Training outcome, observed time, indicator.}
+\item{y_data, w_data, delta_data}{Outcome, observed time, and event indicator.}
 
-\item{z_c_data, z_d_data}{Optional continuous / discrete covariates.}
-
-\item{residual}{Residual function to use (default \code{r1}). Pass
-\code{r2} for the r2 residual; the \code{r1*} residual is \code{r1} with a
-deliberately wrong \code{alpha1_star_r}.}
-
-\item{residual_name}{Label recorded in the result and used to name
-\code{zeta}. Defaults to the deparsed \code{residual} argument; set it to
-\code{"r1star"} when using a misspecified residual center.}
+\item{z_c_data, z_d_data}{Optional continuous and discrete covariates.}
 
 \item{alpha}{Miscoverage level.}
 
-\item{x_a}{Grid over the event-time covariate (default seq(w_min, w_max)).}
+\item{alpha1_star, tau1}{Optional coefficients and standard deviation for the
+working model for \code{X | Z}. Estimated when not supplied.}
 
-\item{alpha1_star, tau1}{Optional pre-fitted eta1 mean / SD; fitted by
-\code{find_alpha1_MLE} when NULL.}
+\item{alpha1_star_r, tau1_r}{Optional coefficients and SD used for the
+residual. Use alternative values for \code{r1*}. By default,
+\code{alpha1_star_r = alpha1_star} and \code{tau1_r = tau1}.}
 
-\item{alpha2_star, tau2}{Optional pre-fitted eta2 mean / SD; fitted by
-\code{find_alpha2_MLE} when NULL.}
+\item{alpha2_star, tau2}{Optional coefficients and standard deviation for the
+working model for \code{C | Z}. Estimated when not supplied.}
 
-\item{beta, sigma}{Optional pre-fitted outcome coefficients / SD; fitted by
-\code{find_beta_sparcc} when NULL.}
+\item{beta, sigma}{Optional outcome-model coefficients and standard deviation.
+Estimated by SPARCC when not supplied.}
 
-\item{alpha1_star_r}{Center used inside the residual (defaults to
-\code{alpha1_star}).}
-
-\item{tau1_r}{SD used inside the residual (defaults to \code{tau1}).}
-
-\item{test_y_data, test_w_data, test_delta_data}{Optional test set. When
-supplied, \code{coverage_rate} is evaluated on it; otherwise it is
-\code{NA}.}
+\item{test_y_data, test_w_data, test_delta_data}{Optional test data for
+evaluating empirical coverage.}
 
 \item{test_z_c_data, test_z_d_data}{Optional test covariates.}
 
+\item{residual}{Residual function. Use \code{r1} or \code{r2}.}
+
+\item{residual_name}{Label for the residual in the returned object. Set to
+\code{"r1star"} when using \code{r1*}.}
+
+\item{x_a}{Grid over the censored covariate. By default, an equally spaced
+grid between \code{w_min} and \code{w_max}.}
+
 \item{w_min, w_max}{Truncation bounds.}
 
-\item{tt, m}{Integration grid size and covariate-grid resolution.}
+\item{tt, m}{Integration grid size and covariate-grid resolution used when
+fitting the outcome model.}
 
-\item{seq_length}{Number of half-length grid points.}
+\item{seq_length}{Number of candidate half-lengths.}
 
-\item{b_args}{Optional named list overriding build_b123_arrays grid sizes.}
+\item{b_args}{Optional named list overriding numerical settings in
+\code{build_b123_arrays}.}
 }
 \value{
-A list with \code{method}, \code{alpha}, \code{residual},
-  \code{zeta} (the half-length, named by the residual),
-  \code{coverage_rate}, the fitted \code{beta}, \code{sigma} and nuisance
-  parameters, plus \code{zeta_seq} and \code{zeta_list} from the solve.
+A list containing the estimated half-length, optional empirical
+  coverage rate, fitted model parameters, and numerical quantities used in
+  the half-length solve.
 }
 \description{
-Convenience wrapper that fits the nuisance models for X | Z and C | Z,
-estimates beta by SPARCC, builds the b-arrays, and solves for the efficient
-half-length zeta -- all from a single training data set with optional
-covariates. Any pre-fitted piece can be supplied to skip its step.
+Estimates a prediction half-length under a right-censored covariate. Nuisance
+models and the outcome model are fitted when their parameters are not
+supplied.
 }
 \examples{
-\donttest{
 set.seed(1)
-n  <- 200
-x  <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
-cc <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
-w  <- pmin(x, cc)
-delta <- as.integer(x <= cc)
-y  <- 3 * x + rnorm(n)          # beta = c(0, 3)
+n <- 30
+x_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
+c_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
+w_vec <- pmin(x_vec, c_vec)
+delta_vec <- as.integer(x_vec <= c_vec)
+y_vec <- 3 * x_vec + rnorm(n)
 
-# Runs end to end: fits both working models, fits beta by SPARCC,
-# then solves for the half-length.
 fit <- PRESCCO_prediction_interval(
-  y, w, delta,
-  residual = r1, alpha = 0.1,
-  w_min = -1, w_max = 1, seq_length = 3,
-  b_args = list(b1_tt = 5, b1_tt2 = 10, b2_tt = 5, b2_tt2 = 10,
-                b3_tt = 5, b3_tt2 = 10, b3_tt3 = 5)
+  y_data = y_vec,
+  w_data = w_vec,
+  delta_data = delta_vec,
+  alpha = 0.1,
+  alpha1_star = 0,
+  tau1 = 1,
+  alpha1_star_r = 0,
+  tau1_r = 1,
+  alpha2_star = 1,
+  tau2 = 1,
+  beta = c(0, 3),
+  sigma = 1,
+  residual = r1,
+  w_min = -1,
+  w_max = 1,
+  m = 5,
+  seq_length = 3,
+  b_args = list(
+    n_c_grid = 3,
+    b1_tt = 3,
+    b1_tt2 = 5,
+    b2_tt = 3,
+    b2_tt2 = 5,
+    b3_tt = 3,
+    b3_tt2 = 5,
+    b3_tt3 = 3
+  )
 )
-fit$zeta             # half-length, named by the residual
-fit$coverage_rate    # NA: no test set was supplied
+fit$zeta
 
-# r1* is the same call under a working model for X | Z; label it so the
-# result records which residual was used.
-fit_star <- PRESCCO_prediction_interval(
-  y, w, delta,
-  residual = r1, residual_name = "r1star",
-  alpha1_star_r = -2, alpha = 0.1,
-  w_min = -1, w_max = 1, seq_length = 3,
-  b_args = list(b1_tt = 5, b1_tt2 = 10, b2_tt = 5, b2_tt2 = 10,
-                b3_tt = 5, b3_tt2 = 10, b3_tt3 = 5)
-)
-fit_star$zeta
-}
 }

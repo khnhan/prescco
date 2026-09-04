@@ -2,7 +2,7 @@
 % Please edit documentation in R/predict_conformal.R
 \name{split_conformal_prediction_interval}
 \alias{split_conformal_prediction_interval}
-\title{Split conformal prediction half-length}
+\title{Split conformal prediction interval}
 \usage{
 split_conformal_prediction_interval(
   y_data,
@@ -10,19 +10,19 @@ split_conformal_prediction_interval(
   delta_data,
   z_c_data = NULL,
   z_d_data = NULL,
-  alpha1,
-  alpha2,
-  alpha1_star_r,
   alpha,
-  split_rate = 0.5,
+  alpha1,
   tau1,
-  tau2,
+  alpha1_star_r,
   tau1_r,
+  alpha2,
+  tau2,
   test_y_data = NULL,
   test_w_data = NULL,
   test_delta_data = NULL,
   test_z_c_data = NULL,
   test_z_d_data = NULL,
+  split_rate = 0.5,
   tt = 20,
   m = 20,
   w_min,
@@ -30,75 +30,74 @@ split_conformal_prediction_interval(
 )
 }
 \arguments{
-\item{y_data, w_data, delta_data}{Observed outcome, time, event indicator.}
+\item{y_data, w_data, delta_data}{Outcome, observed time, and event indicator.}
 
-\item{z_c_data, z_d_data}{Optional covariates.}
-
-\item{alpha1, alpha2}{Nuisance mean coefficient vectors.}
-
-\item{alpha1_star_r}{Center used inside the residual.}
+\item{z_c_data, z_d_data}{Optional continuous and discrete covariates.}
 
 \item{alpha}{Miscoverage level.}
 
-\item{split_rate}{Fraction used for fitting (rest calibrates).}
+\item{alpha1, tau1}{Coefficients and standard deviation for the working model
+for \code{X | Z}.}
 
-\item{tau1, tau2, tau1_r}{Standard deviations (tau1_r for the residual center).}
+\item{alpha1_star_r, tau1_r}{Coefficients and SD for \code{r1*}.}
 
-\item{test_y_data, test_w_data, test_delta_data}{Optional test set. When
-supplied, \code{coverage_rate} is evaluated on it; otherwise it is
-\code{NA}.}
+\item{alpha2, tau2}{Coefficients and standard deviation for the working model
+for \code{C | Z}.}
+
+\item{test_y_data, test_w_data, test_delta_data}{Optional test data for
+evaluating empirical coverage.}
 
 \item{test_z_c_data, test_z_d_data}{Optional test covariates.}
+
+\item{split_rate}{Fraction of observations used to estimate the outcome
+model.}
 
 \item{tt, m}{Integration grid size and covariate-grid resolution.}
 
 \item{w_min, w_max}{Truncation bounds.}
 }
 \value{
-A list with \code{method}, \code{alpha}, \code{residual},
-  \code{zeta} (named half-lengths for r1, r2, r1*), \code{coverage_rate}
-  (\code{NA} unless test data is supplied), \code{beta}, \code{sigma},
-  \code{n_fit}, and \code{n_calibrate}.
+A list containing the estimated half-lengths, optional empirical
+  coverage rates, fitted outcome-model coefficients and scale, and split
+  sizes.
 }
 \description{
-Fits beta by SPARCC on the first split, then calibrates the half-length on
-the held-out split using empirical residual quantiles. Covariate-aware.
+Fits the outcome-model coefficients by SPARCC on one split and estimates
+the prediction half-length from residuals on the calibration split.
 }
 \examples{
-\donttest{
 set.seed(1)
-n  <- 200
-x  <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
-cc <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
-w  <- pmin(x, cc)
-delta <- as.integer(x <= cc)
-y  <- 3 * x + rnorm(n)          # beta = c(0, 3)
+n <- 60
+x_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
+c_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
+w_vec <- pmin(x_vec, c_vec)
+delta_vec <- as.integer(x_vec <= c_vec)
+y_vec <- 3 * x_vec + rnorm(n)
 
-a1 <- unname(find_alpha1_MLE(w, delta, w_min = -1, w_max = 1))
-a2 <- unname(find_alpha2_MLE(w, delta, w_min = -1, w_max = 1))
+alpha1_fit <- unname(find_alpha1_MLE(
+  w_vec, delta_vec, w_min = -1, w_max = 1
+))
+alpha2_fit <- unname(find_alpha2_MLE(
+  w_vec, delta_vec, w_min = -1, w_max = 1
+))
 
 fit <- split_conformal_prediction_interval(
-  y, w, delta,
-  alpha1 = a1[1], alpha2 = a2[1], alpha1_star_r = a1[1],
-  alpha = 0.1, tau1 = a1[2], tau2 = a2[2], tau1_r = a1[2],
-  w_min = -1, w_max = 1
+  y_data = y_vec,
+  w_data = w_vec,
+  delta_data = delta_vec,
+  alpha = 0.1,
+  alpha1 = alpha1_fit[1],
+  tau1 = alpha1_fit[2],
+  alpha1_star_r = alpha1_fit[1],
+  tau1_r = alpha1_fit[2],
+  alpha2 = alpha2_fit[1],
+  tau2 = alpha2_fit[2],
+  tt = 5,
+  m = 5,
+  w_min = -1,
+  w_max = 1
 )
-fit$zeta            # half-lengths for r1, r2 and r1*
-fit$coverage_rate   # NA unless test data is supplied
+fit$zeta
+fit$coverage_rate
 
-# Supply a test set and the coverage rate is filled in
-set.seed(2)
-xt <- truncnorm::rtruncnorm(300, a = -1, b = 1, mean = 0, sd = 1)
-ct <- truncnorm::rtruncnorm(300, a = -1, b = 1, mean = 1, sd = 1)
-fit2 <- split_conformal_prediction_interval(
-  y, w, delta,
-  alpha1 = a1[1], alpha2 = a2[1], alpha1_star_r = a1[1],
-  alpha = 0.1, tau1 = a1[2], tau2 = a2[2], tau1_r = a1[2],
-  test_y_data = 3 * xt + rnorm(300),
-  test_w_data = pmin(xt, ct),
-  test_delta_data = as.integer(xt <= ct),
-  w_min = -1, w_max = 1
-)
-fit2$coverage_rate
-}
 }

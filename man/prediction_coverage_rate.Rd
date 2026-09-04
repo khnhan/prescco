@@ -2,7 +2,7 @@
 % Please edit documentation in R/predict_PRESCCO.R
 \name{prediction_coverage_rate}
 \alias{prediction_coverage_rate}
-\title{Empirical coverage of a half-length on a test set}
+\title{Empirical prediction coverage}
 \usage{
 prediction_coverage_rate(
   zeta,
@@ -10,8 +10,8 @@ prediction_coverage_rate(
   test_y_data,
   test_w_data,
   test_delta_data,
-  test_z_c_data,
-  test_z_d_data,
+  test_z_c_data = NULL,
+  test_z_d_data = NULL,
   beta,
   alpha1_star_r,
   tau1,
@@ -20,51 +20,53 @@ prediction_coverage_rate(
 )
 }
 \arguments{
-\item{zeta}{Half-length to evaluate.}
+\item{zeta}{Half-length.}
 
-\item{r}{Residual function (r1 or r2).}
+\item{r}{Residual function, such as \code{r1} or \code{r2}.}
 
-\item{test_y_data, test_w_data, test_delta_data}{Test outcome, time, indicator.}
+\item{test_y_data, test_w_data, test_delta_data}{Test outcome, observed time,
+and event indicator.}
 
 \item{test_z_c_data, test_z_d_data}{Optional test covariates.}
 
-\item{beta}{Fitted coefficients.}
+\item{beta}{Fitted outcome-model coefficient vector.}
 
-\item{alpha1_star_r}{Center used inside the residual.}
+\item{alpha1_star_r}{Coefficients used by the residual.}
 
-\item{tau1}{Standard deviation of X.}
+\item{tau1}{Standard deviation used by the residual.}
 
 \item{w_min, w_max}{Truncation bounds.}
 }
 \value{
-The empirical coverage rate (fraction of residuals <= zeta).
+The empirical coverage rate.
 }
 \description{
-Empirical coverage of a half-length on a test set
+Evaluates the empirical coverage of a fixed half-length on a test set.
 }
 \examples{
 set.seed(1)
-n  <- 200
-x  <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
-cc <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
-w  <- pmin(x, cc)
-delta <- as.integer(x <= cc)
-y  <- 3 * x + rnorm(n)          # beta = c(0, 3)
+n <- 200
+x_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 0, sd = 1)
+c_vec <- truncnorm::rtruncnorm(n, a = -1, b = 1, mean = 1, sd = 1)
+w_vec <- pmin(x_vec, c_vec)
+delta_vec <- as.integer(x_vec <= c_vec)
+y_vec <- 3 * x_vec + rnorm(n)
 
-beta <- find_beta_cc(y, w, delta)$beta_cc
+beta_fit <- find_beta_cc(
+  y_vec, w_vec, delta_vec
+)$beta_cc
 
-# Fresh test data
-set.seed(2)
-xt  <- truncnorm::rtruncnorm(500, a = -1, b = 1, mean = 0, sd = 1)
-ct  <- truncnorm::rtruncnorm(500, a = -1, b = 1, mean = 1, sd = 1)
-wt  <- pmin(xt, ct); dt <- as.integer(xt <= ct)
-yt  <- 3 * xt + rnorm(500)
+prediction_coverage_rate(
+  zeta = 2,
+  r = r1,
+  test_y_data = y_vec,
+  test_w_data = w_vec,
+  test_delta_data = delta_vec,
+  beta = beta_fit,
+  alpha1_star_r = 0,
+  tau1 = 1,
+  w_min = -1,
+  w_max = 1
+)
 
-# Coverage rate rises with zeta, from 0 to 1
-prediction_coverage_rate(0.5, r1, yt, wt, dt, NULL, NULL,
-                         beta, alpha1_star_r = 0, tau1 = 1,
-                         w_min = -1, w_max = 1)
-prediction_coverage_rate(3.0, r1, yt, wt, dt, NULL, NULL,
-                         beta, alpha1_star_r = 0, tau1 = 1,
-                         w_min = -1, w_max = 1)
 }
