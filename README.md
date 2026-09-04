@@ -14,10 +14,10 @@ observing $X$ for everyone, we observe $W = \min(X,C), \qquad \Delta = I(X \le C
 When $\Delta=1$, $X=W$ is observed. When $\Delta=0$, we only know that
 $X>W$.
 
-A prediction interval has a center $m$ and half-length $\zeta$, $[m-\zeta,m+\zeta]$, with target coverage
+A prediction interval for the outcome $Y$ has a center $m$ and half-length $\zeta$, $[m-\zeta,m+\zeta]$, with target coverage
 $P(|Y-m|\le \zeta)=1-\alpha$.
 
-The package estimates the outcome model, working nuisance models for $X\mid Z$
+The package estimates the outcome model $Y\mid X,Z$, working nuisance models for $X\mid Z$
 and $C\mid Z$, and prediction half-lengths while retaining the censored
 observations.
 
