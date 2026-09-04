@@ -9,26 +9,13 @@ a right-censored time-to-event variable.
 ## The problem
 
 Let $X$ be a time-to-event covariate and $C$ its censoring time. Instead of
-observing $X$ for everyone, we observe
-
-$$
-W = \min(X,C), \qquad \Delta = I(X \le C).
-$$
+observing $X$ for everyone, we observe $W = \min(X,C), \qquad \Delta = I(X \le C).$
 
 When $\Delta=1$, $X=W$ is observed. When $\Delta=0$, we only know that
 $X>W$.
 
-A prediction interval has a center $m$ and half-length $\zeta$,
-
-$$
-[m-\zeta,\;m+\zeta],
-$$
-
-with target coverage
-
-$$
-P\{|Y-m|\le \zeta\}=1-\alpha.
-$$
+A prediction interval has a center $m$ and half-length $\zeta$, $[m-\zeta,m+\zeta]$, with target coverage
+$P(|Y-m|\le \zeta)=1-\alpha$.
 
 The package estimates the outcome model, working nuisance models for $X\mid Z$
 and $C\mid Z$, and prediction half-lengths while retaining the censored
@@ -36,28 +23,13 @@ observations.
 
 ## Model
 
-The outcome model is linear in the basis
-
-$$
-\phi_{XZ}(x,z_c,z_d)
-=
-(1,\;x,\;z_c,\;z_d,\;xz_c,\;xz_d),
-$$
-
+The outcome model is linear in the basis $\phi_{XZ}(x,z_c,z_d)=(1,x,z_c,z_d,xz_c,xz_d),$
 so that
-
-$$
-Y\mid X,Z
-\sim
-N\{\phi_{XZ}(X,Z)^\top\beta,\sigma^2\}.
-$$
+$$Y\mid X,Z\sim N(\phi_{XZ}(X,Z)^\top\beta,\sigma^2).$$
 
 The fully observed covariates $Z$ may contain a continuous block $Z_c$, a
-discrete block $Z_d$, both, or neither. With no additional covariates,
-
-$$
-Y\mid X \sim N(\beta_1+\beta_2X,\sigma^2).
-$$
+discrete block $Z_d$, both, or neither. 
+With no additional covariates, $Y\mid X \sim N(\beta_1+\beta_2X,\sigma^2)$.
 
 The working nuisance models are truncated normal on
 $[w_{\min},w_{\max}]$:
@@ -65,15 +37,15 @@ $[w_{\min},w_{\max}]$:
 $$
 X\mid Z
 \sim
-\operatorname{TruncNormal}
-\{(1,z_c,z_d)^\top\alpha_1,\tau_1^2\},
+\rm{TruncNormal}
+((1,z_c,z_d)^\top\alpha_1,\tau_1^2),
 $$
 
 $$
 C\mid Z
 \sim
-\operatorname{TruncNormal}
-\{(1,z_c,z_d)^\top\alpha_2,\tau_2^2\}.
+\rm{TruncNormal}
+((1,z_c,z_d)^\top\alpha_2,\tau_2^2).
 $$
 
 `phi_xz()` returns the outcome-model basis and fixes the coefficient ordering
@@ -95,11 +67,7 @@ Two estimators are available.
 The complete-data outcome mean is
 
 $$
-m_0(X,Z,\beta)
-=
-E(Y\mid X,Z,\beta)
-=
-\phi_{XZ}(X,Z)^\top\beta.
+m_0(X,Z,\beta) = E(Y\mid X,Z,\beta) = \phi_{XZ}(X,Z)^\top\beta.
 $$
 
 Because $X$ may be censored, the package uses centers based on the observed
@@ -108,9 +76,7 @@ data $(W,\Delta,Z)$.
 For $r_1$, the center is
 
 $$
-m_1(W,\Delta,Z,\beta)
-=
-E\{m_0(X,Z,\beta)\mid W,\Delta,Z\},
+m_1(W,\Delta,Z,\beta) = E(m_0(X,Z,\beta)\mid W,\Delta,Z),
 $$
 
 where censored observations average over the values $X>W$ allowed by the
